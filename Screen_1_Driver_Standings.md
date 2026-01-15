@@ -1,6 +1,6 @@
 # Screen 1: Driver Standings
 
-Status: Defined; Not Implemented
+Status: Implemented [Terminal Output]
 
 Purpose: Display season-based Formula 1 Driver Standings in a clean, readable format.
 
@@ -8,7 +8,7 @@ Data Source:
 - FastF1 [Post Race, Cached Timing Data]
 
 Inputs:
-- Season [Default : Latest Season]
+- Season [Default : Configurable Constant]
 
 Displayed Data: 
 - Position
