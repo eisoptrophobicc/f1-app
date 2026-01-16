@@ -1,4 +1,4 @@
-# Screen 1: Constructor Standings
+# Screen 2: Constructor Standings
 
 Status: Implemented [Terminal Output]
 
