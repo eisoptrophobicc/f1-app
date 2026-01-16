@@ -17,8 +17,12 @@ Displayed Data:
 - Team
 - Points
 
-If done correctly the following should be possible:
+Current Behavior:
 - Standings load correctly for a given season
-- Data matches official F1 results
-- No crashes on missing partial data
+- Data matches official F1 constructor standings
+- No crashes on missing or partial data
 - Logic can be explained end-to-end
+
+Notes:
+- Constructor names are displayed as provided by the data source
+- Screen is selected via routing logic in `main.py`
