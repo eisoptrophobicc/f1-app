@@ -1,8 +1,8 @@
-# Screen 1: Driver Standings
+# Screen 2: Constructor Standings
 
 Status: Implemented [Terminal Output]
 
-Purpose: Display season-based Formula 1 Driver Standings in a clean, readable format.
+Purpose: Display season-based Formula 1 Constructor Standings in a clean, readable format.
 
 Data Source:
 - FastF1 [Post Race, Cached Timing Data]
@@ -12,8 +12,6 @@ Inputs:
 
 Displayed Data: 
 - Position
-- Driver
-- Nationality [Derived via Mapping]
 - Team
 - Points
 
