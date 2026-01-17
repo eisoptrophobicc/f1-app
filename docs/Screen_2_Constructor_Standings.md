@@ -5,12 +5,13 @@ Status: Implemented [Terminal Output]
 Purpose: Display season-based Formula 1 Constructor Standings in a clean, readable format.
 
 Data Source:
-- FastF1 [Post Race, Cached Timing Data]
+- JolpicaF1 [Accessed via FastF1]
 
 Inputs:
 - **Season**
   - Auto-resolved on app start to the latest season with at least one completed race
-  - May be explicitly provided by an external input layer in the future
+  - May be explicitly provided via CLI input
+  - If an explicitly requested season has no race data, an empty-state message is shown
 
 Displayed Data: 
 - Position
