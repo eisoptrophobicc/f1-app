@@ -5,6 +5,7 @@ A Formula 1 Project built incrementally.
 ## Current Features
 - Driver standings screen (season-based)
 - Constructor standings screen (season-based)
+- CLI support for selecting screen and season
 - Data sourced from Ergast (via FastF1)
 - Nationality mapped to IOC-style country codes
 - Clean, readable terminal output
@@ -26,15 +27,25 @@ Screen selection is currently handled via a configuration constant in `main.py`.
 - Constructor names are shown as provided by the data source
 - FastF1 caching is enabled locally for performance
 
+## CLI Example Usage
+```bash
+python src/main.py
+python src/main.py --screen drivers
+python src/main.py --screen constructors
+python src/main.py --season 2024
+python src/main.py --season current
+python src/main.py --screen drivers --season 2023
+```
+
 ## Notes
 - Constructor names are shown as provided by the data source
-- No UI or CLI interaction yet; output is terminal-based
+- CLI is used for screen and season selection
+- Output is terminal-based
 - Screens are intentionally kept independent of season resolution logic
 - Logic is structured to be explainable end-to-end
 
 ## Planned
 - Improved screen routing
-- CLI-based screen and season selection
 - Race calendar screen with session-level details
 - Additional analytics screens
 - UI layer (later)
