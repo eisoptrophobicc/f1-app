@@ -6,7 +6,7 @@ A Formula 1 Project built incrementally.
 - Driver standings screen (season-based)
 - Constructor standings screen (season-based)
 - CLI support for selecting screen and season
-- Data sourced from Ergast (via FastF1)
+- Data sourced from JolpicaF1 (via FastF1)
 - Nationality mapped to IOC-style country codes
 - Clean, readable terminal output
 
