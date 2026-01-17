@@ -1,8 +1,12 @@
 def dri_stands(season, ergast_api, nat_ioc):
-    results = ergast_api.get_driver_standings(season = season).content[0]
-
     print(f"{'POS.':<5} {'DRIVER':<25} {'NATIONALITY':<15} {'TEAM':<15} {'PTS.':>5}")
     print("-" * 60)
+
+    if season is None:
+        print("No valid season data found.")
+        return
+    
+    results = ergast_api.get_driver_standings(season = season).content[0]
 
     for _, row in results.iterrows():
         pos = row['position']

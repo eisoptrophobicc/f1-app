@@ -1,8 +1,12 @@
 def team_stands(season, ergast_api):
-    results = ergast_api.get_constructor_standings(season = season).content[0]
-
     print(f"{'POS.':<5} {'TEAM':<20} {'PTS.':>5}")
     print("-" * 60)
+
+    if season is None:
+        print("No valid season data found.")
+        return
+    
+    results = ergast_api.get_constructor_standings(season = season).content[0]
 
     for _, row in results.iterrows():
         pos = row['position']
