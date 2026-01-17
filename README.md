@@ -15,18 +15,26 @@ A Formula 1 Project built incrementally.
 
 Screen selection is currently handled via a configuration constant in `main.py`.
 
+## Season Logic
+- On app start, standings default to the **latest season with at least one completed race**
+- Ongoing seasons are supported once race data exists
+- If a season with no standings data is requested, screens render a clear empty-state message
+- Season resolution logic is handled outside individual screens
+
 ## Configuration
-- Season is currently configurable via a constant (`default_season`)
-- Constructor names are shown as provided by the data source (`active_screen`)
+- Active screen is selected via a constant (`active_screen`)
+- Constructor names are shown as provided by the data source
 - FastF1 caching is enabled locally for performance
 
 ## Notes
 - Constructor names are shown as provided by the data source
 - No UI or CLI interaction yet; output is terminal-based
+- Screens are intentionally kept independent of season resolution logic
 - Logic is structured to be explainable end-to-end
 
 ## Planned
 - Improved screen routing
-- Dynamic season selection
+- CLI-based screen and season selection
+- Race calendar screen with session-level details
 - Additional analytics screens
 - UI layer (later)
