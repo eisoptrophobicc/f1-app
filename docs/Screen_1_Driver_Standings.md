@@ -20,6 +20,10 @@ Displayed Data:
 Current Behavior:
 - Standings load correctly for a given season
 - Data matches official F1 constructor standings
+- Standings are shown only for seasons with at least one completed race
+- If a season with no race data is requested, an empty-state message is displayed
+- Season resolution logic is handled outside the screen
+- Displays an empty-state message when no data is available
 - No crashes on missing or partial data
 - Logic can be explained end-to-end
 
