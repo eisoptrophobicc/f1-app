@@ -8,7 +8,9 @@ Data Source:
 - FastF1 [Post Race, Cached Timing Data]
 
 Inputs:
-- Season [Default : Configurable Constant]
+- **Season**
+  - Auto-resolved on app start to the latest season with at least one completed race
+  - May be explicitly provided by an external input layer in the future
 
 Displayed Data: 
 - Position
