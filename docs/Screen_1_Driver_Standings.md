@@ -5,12 +5,13 @@ Status: Implemented [Terminal Output]
 Purpose: Display season-based Formula 1 Driver Standings in a clean, readable format.
 
 Data Source:
-- FastF1 [Post Race, Cached Timing Data]
+- JolpicaF1 [Accessed via FastF1]
 
 Inputs:
 - **Season**
   - Auto-resolved on app start to the latest season with at least one completed race
-  - May be explicitly provided by an external input layer in the future
+  - May be explicitly provided via CLI input
+  - If an explicitly requested season has no race data, an empty-state message is shown
 
 Displayed Data: 
 - Position
@@ -19,9 +20,9 @@ Displayed Data:
 - Team
 - Points
 
-Current Behavior:
+Current Behaviour:
 - Standings load correctly for a given season
-- Data matches official F1 constructor standings
+- Data matches official F1 driver standings
 - Standings are shown only for seasons with at least one completed race
 - If a season with no race data is requested, an empty-state message is displayed
 - Season resolution logic is handled outside the screen
