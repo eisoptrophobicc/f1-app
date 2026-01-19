@@ -1,26 +1,26 @@
 # Screen 1: Driver Standings
 
-Status: Implemented [Terminal Output]
+##Status: Implemented [Terminal Output]
 
-Purpose: Display season-based Formula 1 Driver Standings in a clean, readable format.
+##Purpose: Display season-based Formula 1 Driver Standings in a clean, readable format.
 
-Data Source:
+##Data Source:
 - JolpicaF1 [Accessed via FastF1]
 
-Inputs:
+##Inputs:
 - **Season**
   - Auto-resolved on app start to the latest season with at least one completed race
   - May be explicitly provided via CLI input
   - If an explicitly requested season has no race data, an empty-state message is shown
 
-Displayed Data: 
+##Displayed Data: 
 - Position
 - Driver
 - Nationality [Derived via Mapping]
 - Team
 - Points
 
-Current Behaviour:
+##Current Behaviour:
 - Standings load correctly for a given season
 - Data matches official F1 driver standings
 - Standings are shown only for seasons with at least one completed race
@@ -30,6 +30,6 @@ Current Behaviour:
 - No crashes on missing or partial data
 - Logic can be explained end-to-end
 
-Notes:
+##Notes:
 - Constructor names are displayed as provided by the data source
 - Screen is selected via routing logic in `main.py`
