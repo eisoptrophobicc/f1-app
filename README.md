@@ -5,6 +5,8 @@ A Formula 1 Project built incrementally.
 ## Current Features
 - Driver standings screen (season-based)
 - Constructor standings screen (season-based)
+- Race calendar screen showing testing and race weekends (season-based)
+- Calendar and standings intentionally use different season semantics
 - CLI support for selecting screen and season
 - Data sourced from JolpicaF1 (via FastF1)
 - Nationality mapped to IOC-style country codes
@@ -13,11 +15,13 @@ A Formula 1 Project built incrementally.
 ## Screens
 - **Driver Standings**: Displays driver position, name, nationality, team, and points
 - **Constructor Standings**: Displays constructor position, team and points
+- **Race Calendar**: Displays round, country, location, event name, event format, start date, end date
 
 Screen selection is currently handled via a configuration constant in `main.py`.
 
 ## Season Logic
 - On app start, standings default to the **latest season with at least one completed race**
+- On app start, calender default to the **latest season**
 - Ongoing seasons are supported once race data exists
 - If a season with no standings data is requested, screens render a clear empty-state message
 - Season resolution logic is handled outside individual screens
@@ -46,6 +50,6 @@ python src/main.py --screen drivers --season 2023
 
 ## Planned
 - Improved screen routing
-- Race calendar screen with session-level details
+- Race calendar screen expansion with session-level details
 - Additional analytics screens
 - UI layer (later)
