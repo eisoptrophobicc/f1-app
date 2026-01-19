@@ -1,8 +1,10 @@
 # Screen 2: Constructor Standings
 
-## Status: Implemented [Terminal Output]
+## Status: 
+Implemented [Terminal Output]
 
-## Purpose: Display season-based Formula 1 Constructor Standings in a clean, readable format.
+## Purpose: 
+Display season-based Formula 1 Constructor Standings in a clean, readable format.
 
 ## Data Source:
 - JolpicaF1 [Accessed via FastF1]
