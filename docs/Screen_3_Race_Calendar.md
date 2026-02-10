@@ -18,25 +18,32 @@ Display the official Formula 1 season timeline, including pre-season testing and
   - If an explicitly requested season has no race data, an empty-state message is shown
 
 ## Event Types:
+
 ### Pre-Season Testing
 - Identified via `RoundNumber == 0`
 - Appears before Round 1
-- May contain multiple sessions per day
+- May contain multiple testing events (e.g. Testing 1, Testing 2)
+- Displayed with ordinal labels to support user selection
 
 ### Race Weekend:
-- Identified via `RoundNumber`
+- Identified via `RoundNumber > 0`
 - May be conventional or sprint format
 
 ## Displayed Data:
-- Round Number [if applicable]
+- Round Label (Round Number / Testing)
 - Country
 - Location
 - Official Event Name
-- Event type (Testing / Race Weekend)
-- Event start and end dates
+- Event Format (Testing / Race Weekend)
+- Event Duration
+
+## Role in Navigation
+- Acts as the authoritative source for event ordering
+- Calendar order defines the internal event index
+- Used to resolve user-facing round input into a specific event
 
 ## Notes:
 - Official Event Names are displayed as provided by the data source
 - Calendar semantics differ intentionally from standings semantics
 - Standings require completed races; the calendar does not
-- Session-level breakdown is planned for a later phase
+- Session-level breakdown is handled in the Session Overview screen

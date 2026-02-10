@@ -34,4 +34,4 @@ Display season-based Formula 1 Driver Standings in a clean, readable format.
 
 ## Notes:
 - Constructor names are displayed as provided by the data source
-- Screen is selected via routing logic in `main.py`
+- Screen is selected via CLI routing in `main.py`
