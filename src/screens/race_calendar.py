@@ -6,13 +6,13 @@ def race_calen(fastf1, season, show = True):
         schedule = fastf1.get_event_schedule(season)
     except Exception:
         print(f"{'ROUND':<10} {'COUNTRY':<20} {'LOCATION':>20} {'EVENT NAME':<80} {'EVENT FORMAT':<20} {'DURATION':<30}")
-        print("-" * 185)
+        print("-" * 180)
         print("No valid season data found.")
         return
     
     if show:
         print(f"{'ROUND':<10} {'COUNTRY':<20} {'LOCATION':>20} {'EVENT NAME':<80} {'EVENT FORMAT':<20} {'DURATION':<30}")
-        print("-" * 185)
+        print("-" * 180)
 
         if schedule is None or schedule.empty:
             print("No valid season data found.")

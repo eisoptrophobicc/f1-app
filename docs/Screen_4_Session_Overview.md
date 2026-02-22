@@ -34,10 +34,13 @@ This screen acts as a bridge between the race calendar and detailed session-leve
 - Top 3 Fastest Laps (analytics-first)
 
 ## Behaviour:
-- Session status is computed using session date vs current time
-- Analytics are computed only for completed sessions
-- Heavy FastF1 loading (`session.load()`) occurs only in this screen
-- Overview screen does not rely on classification-based results
+-  Session status is computed using session date vs current UTC time
+-  Analytics are computed only for completed sessions
+-  Fastest laps are derived from lap-time aggregation (not classification tables)
+-  Session data loading is cached in-memory during runtime
+-  Adaptive computation:
+  -  Single completed session → sequential loading
+  -  Multiple completed sessions → parallel loading (ThreadPoolExecutor)
 
 ## Performance Considerations:
 - FastF1 data loading is the primary performance cost

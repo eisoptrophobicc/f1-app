@@ -49,10 +49,14 @@ def resolve_calseason(request_season=None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="F1 Analytics[Terminal]")
-    parser.add_argument("--screen", choices=["drivers", "constructors", "calendar", "overview"], default="calendar", help="Select the screen to display")
+    parser.add_argument("--screen", choices=["drivers", "constructors", "calendar", "overview", "replay"], default="calendar", help="Select the screen to display")
     parser.add_argument("--season", default=None, help="Season Year [e.g., 2023] or 'current'")
     parser.add_argument("--round", type=int, default=None, help="Round Number (use 0 for testing)")
     parser.add_argument("--test", type=int, default=None, help="Testing Event Number (only used when round = 0)")
+    parser.add_argument("--session", type=str, default=None, help="Session name (FP1, FP2, FP3, Qualifying, Race)")
+    parser.add_argument("--dnf-mode", choices=["vanish", "freeze"], default="vanish", help="DNF behavior: vanish (default) or freeze at crash position")
+    parser.add_argument("--dsq-mode", choices=["show", "faded", "hide"], default="show", help="DSQ behavior: show (default) or hide from start")
+    parser.add_argument("--speed", type=float, default=1.0, help="Replay speed multiplier (1.0 = real time)")
     return parser.parse_args()
 
 args = parse_args()
@@ -66,12 +70,16 @@ from screens.driver_standings import dri_stands
 from screens.constructor_standings import team_stands
 from screens.race_calendar import race_calen, resolve_event_index
 from screens.session_overview import session_overview
+from engines.replay_engine import TelemetryReplayEngine
+from visualizers.replay_animator import TelemetryAnimator
+from screens.session_replay import run_replay
 
 ROUTES = {
     "drivers": lambda: dri_stands(default_staseason, ergast_api, nat_ioc),
     "constructors": lambda: team_stands(default_staseason, ergast_api),
     "calendar": lambda: race_calen(fastf1, default_calseason, show=True),
     "overview": lambda: (lambda schedule: session_overview(fastf1, default_calseason, event_idx=resolve_event_index(schedule, round_number=args.round,test_number=args.test), schedule_df=schedule))(race_calen(fastf1, default_calseason, show=False)),
+    "replay": lambda: run_replay(fastf1, TelemetryReplayEngine, TelemetryAnimator, default_calseason, args.round, args.session, dnf_mode=args.dnf_mode, dsq_mode=args.dsq_mode, speed=args.speed),
 }
 
 def main():

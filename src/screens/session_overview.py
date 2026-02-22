@@ -1,6 +1,7 @@
 import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from utils.session_context import SessionContext
 
 FASTEST_CACHE = {}
 
@@ -12,16 +13,15 @@ def get_top3_fastest(fastf1, season, round_num, session_name):
         return FASTEST_CACHE[key]
 
     try:
-        session = fastf1.get_session(season, round_num, session_name)
-
-        session.load(laps=True, telemetry=False, weather=False, messages=False)
-
-        laps = session.laps[["Driver", "LapTime"]].dropna()
+        ctx = SessionContext(fastf1, season, round_num, session_name)
+        laps = ctx.laps[["Driver", "LapTime"]].dropna()
 
         if laps.empty:
             result = "N/A"
         else:
-            fastest = (laps.groupby("Driver")["LapTime"].min().nsmallest(3))
+            fastest = (
+                laps.groupby("Driver")["LapTime"].min().nsmallest(3)
+            )
 
             formatted = []
             for drv, t in fastest.items():
@@ -119,7 +119,6 @@ def session_overview(fastf1, season, event_idx, schedule_df):
 
     print(f"{'Session':<25}{'Date (UTC)':<25}{'Status':<15}{'Top 3 Fastest'}")
     print("-" * 110)
-
 
     for s in sessions:
         date_str = s["date"].strftime("%d %B %Y %H:%M")
