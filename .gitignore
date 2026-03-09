@@ -1,6 +1,16 @@
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .venv/
+.env
 cache/
 src/experiment/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.bin
 .vscode/
+.snapshots/
+.DS_Store
+Thumbs.db

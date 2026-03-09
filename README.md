@@ -8,8 +8,10 @@ A Formula 1 analytics project built incrementally with structured architecture a
 -   Race calendar screen showing testing and race weekends (season-based)
 -   Race weekend session overview screen
 -   Telemetry replay engine with animated track visualization
+-   Web-based replay viewer powered by React + PIXI.js
+-   Binary telemetry export pipeline for efficient replay loading
 -   Calendar and standings intentionally use different season semantics
--   CLI support for selecting screen, season, event, session, and replay behavior
+-   CLI support for selecting screen, season, event, and session
 -   Data sourced from JolpicaF1 (via FastF1)
 -   Nationality mapped to IOC-style country codes
 -   FastF1 local caching enabled
@@ -22,7 +24,7 @@ A Formula 1 analytics project built incrementally with structured architecture a
 - **Race Calendar**: Displays round/testing label, country, location, event name, event format and event duration
 - **Session Overview**: Displays all sessions for a race weekend or testing event, including session name, session date (UTC), status and top 3
 fastest laps
-- **Session Replay**: Displays animated track replay with dnf handling (vanish / freeze), dsq handling (show / faded / hide), adjustable replay speed
+- **Session Replay**: Generates telemetry replay data via CLI and renders an animated race replay in a browser using a PIXI.js renderer
 
 Screen selection is handled via CLI routing in `main.py`.
 
@@ -42,7 +44,8 @@ Screen selection is handled via CLI routing in `main.py`.
 -  Session data is cached in-memory during runtime
 -  Derived analytics are computed adaptively (parallel when beneficial)
 -  Telemetry replay uses a 6-state constant-acceleration Kalman model
--  Replay animation runs at \~60 FPS using Matplotlib blitting
+-  Replay animation runs in a browser-based renderer using PIXI.js
+-  Telemetry data is exported as a compact binary format and streamed to the replay viewer
 -  Internal logic is structured to be explainable end-to-end
 
 ## Configuration
@@ -50,10 +53,52 @@ Screen selection is handled via CLI routing in `main.py`.
 -  Events are selected via **round number**
 -  Pre-season testing uses `round = 0` with an optional secondary selector
 -  Replay requires both `--round` and `--session`
--  DNF behavior configurable via `--dnf-mode`
--  DSQ behavior configurable via `--dsq-mode`
--  Replay speed adjustable via `--speed`
+-  Replay visualization settings (speed, DNF handling, DSQ handling) are controlled in the web viewer
 -  Constructor names are shown as provided by the data source
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/eisoptrophobicc/f1-app.git
+cd f1-app
+```
+
+Install Python dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+This installs all required frontend packages locally inside `frontend/node_modules`, including React, Vite and PIXI.js.
+
+## Running the Application
+
+Start the frontend development server:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Then open another terminal and run the CLI:
+
+```bash
+python src/main.py --screen replay --season 2025 --round 12 --session Race
+```
+
+The CLI will:
+1. Load telemetry data via FastF1
+2. Generate a binary replay file
+3. The browser-based replay viewer will load and display the race replay
 
 ## CLI Example Usage
 ``` bash
@@ -85,14 +130,25 @@ python src/main.py --screen overview --season 2025 --round 0 --test 2
 # Telemetry replay
 python src/main.py --screen replay --season 2025 --round 12 --session Race
 
-# Replay with custom behavior
-python src/main.py --screen replay --season 2025 --round 12 --session Race --dnf-mode freeze --dsq-mode faded --speed 2.0
 ```
+## Tech Stack
+
+**Backend / Data Processing**
+- Python
+- FastF1
+- NumPy
+- Pandas
+- Numba
+
+**Frontend / Visualization**
+- React
+- Vite
+- PIXI.js
 
 ## Notes
 -  Constructor names are shown as provided by the data source
 -  CLI acts as a routing layer for screens
--  Output is primarily terminal-based (replay uses Matplotlib window)
+-  Output is primarily terminal-based (replay uses browser based viewer)
 -  Screens are intentionally kept independent of season resolution logic
 -  Internal logic uses calendar ordering as the source of truth
 -  Heavy telemetry processing is isolated to the replay engine
@@ -106,3 +162,8 @@ python src/main.py --screen replay --season 2025 --round 12 --session Race --dnf
 - Telemetry-based analysis
 - Additional analytics screens
 - UI layer (later)
+
+## Requirements
+- Python 3.12+
+- Node.js 18+
+- npm (bundled with Node.js)
