@@ -257,33 +257,37 @@ def snap_to_track(x_meas, y_meas, track_x, track_y):
 def extract_pit_windows(session,drv):
     laps=session.laps.pick_drivers(drv)
     pit_windows=[]
-    pending_pit_in=None
     race_zero=session.session_start_time
+    pending_pit_ins=[]
 
     for _, lap in laps.iterlaps():
-        lap_num = lap["LapNumber"]
+        lap_num = int(lap["LapNumber"])
         pit_in = lap["PitInTime"]
         pit_out = lap["PitOutTime"]
 
-        if lap_num == 1 and pandas.notna(pit_out):
-            pit_exit = max(
-                0.0,
-                (pit_out - race_zero).total_seconds()
-            )
-            pit_windows.append((0.0, pit_exit))
-            pending_pit_in = None
-            continue
+        if pandas.notna(pit_out):
+            end = (pit_out - race_zero).total_seconds()
+
+            if lap_num == 1 and not pending_pit_ins:
+                pit_windows.append((0.0, max(0.0, end)))
+            else:
+                matched_idx=None
+
+                for idx in range(len(pending_pit_ins)-1,-1,-1):
+                    start = pending_pit_ins[idx]
+                    duration = end - start
+                    if 0.0 <= duration:
+                        matched_idx=idx
+                        break
+
+                if matched_idx is not None:
+                    start = pending_pit_ins[matched_idx]
+                    pit_windows.append((start, end))
+                    pending_pit_ins = pending_pit_ins[matched_idx+1:]
 
         if pandas.notna(pit_in):
-            pending_pit_in = (pit_in - race_zero).total_seconds()
-
-        if pandas.notna(pit_out) and pending_pit_in is not None:
-            end = (pit_out - race_zero).total_seconds()
-            start = pending_pit_in
-            if end < start:
-                start, end = end, start
-            pit_windows.append((start, end))
-            pending_pit_in = None
+            start = (pit_in - race_zero).total_seconds()
+            pending_pit_ins.append(start)
 
     pit_windows.sort()
     return pit_windows
