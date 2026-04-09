@@ -2,6 +2,7 @@ import os
 import subprocess
 import webbrowser
 import urllib.request
+import sys
 
 def run_replay(fastf1, TelemetryReplayEngine, season, round_num, session_name):
 
@@ -51,7 +52,8 @@ def run_replay(fastf1, TelemetryReplayEngine, season, round_num, session_name):
     else:
         print("Starting Vite dev server...")
         subprocess.Popen(
-            ["cmd", "/c", "npm", "run", "dev"],
+            ["cmd", "/c", "npm", "run", "dev"] if sys.platform == "win32"
+            else ["npm", "run", "dev"],
             cwd=frontend_dir
         )
     
