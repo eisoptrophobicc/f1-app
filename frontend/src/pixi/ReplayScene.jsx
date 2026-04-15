@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import * as PIXI from "pixi.js";
+import Throbber from "@/components/Throbber";
 
 export default function ReplayScene({ dnfMode, dsqMode }) {
   const params = new URLSearchParams(window.location.search);
   const replayFile = params.get("file");
 
+  const [isLoading, setIsLoading] = useState(true);
+  
   const containerRef = useRef(null);
   const dnfModeRef = useRef(dnfMode);
   const dsqModeRef = useRef(dsqMode);
@@ -28,19 +31,45 @@ export default function ReplayScene({ dnfMode, dsqMode }) {
 
     let app;
     let isMounted = true;
+    
+    async function fetchReplayWithRetry(url, delay = 500) {
+      while (true) {
+        try {
+          const res = await fetch(url);
+
+          if (res.ok) {
+            const buffer = await res.arrayBuffer();
+
+            if (buffer.byteLength < 8) throw new Error("Too small");
+
+            const dv = new DataView(buffer);
+            const headerLen = dv.getUint32(0, true);
+
+            if (4 + headerLen > buffer.byteLength) {
+              throw new Error("Incomplete file");
+            }
+
+            return buffer;
+          }
+        } catch (err) {
+          console.log("Retrying...", err.message);
+        }
+
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
 
     async function init() {
+      
+      let buffer;
 
-      const response = await fetch(`/${replayFile}`);
-
-      if (!response.ok) {
-        console.error("Failed to load binary replay file!");
+      try {
+        buffer = await fetchReplayWithRetry(`/${replayFile}`);
+      } catch (err) {
+        console.error(err);
+        setIsLoading(false);
         return;
       }
-      
-      const buffer = await response.arrayBuffer();
-      console.log("Status:", response.status);
-      console.log("Content-Type:", response.headers.get("content-type"));
 
       if (!isMounted) return;
 
@@ -70,6 +99,7 @@ export default function ReplayScene({ dnfMode, dsqMode }) {
 
       app.stage.sortableChildren = true;
       containerRef.current.appendChild(app.canvas);
+      setIsLoading(false);
 
       const trackContainer = new PIXI.Container();
       app.stage.addChild(trackContainer);
@@ -396,9 +426,42 @@ export default function ReplayScene({ dnfMode, dsqMode }) {
 
   }, [replayFile]);
 
+  if (!replayFile) {
+    return (
+      <div style={{
+        color: "white",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        background: "black"
+      }}>
+        No replay file provided in URL
+      </div>
+    );
+  }
+
+  /*if (isLoading) {
+    return <Throbber text="Loading Replay..." />;
+  }*/
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100vh" }}>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+
+      {isLoading && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "black",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 10
+        }}>
+          <Throbber text="Loading Replay..." />
+        </div>
+      )}
 
       <div style={{
         position: "absolute",
