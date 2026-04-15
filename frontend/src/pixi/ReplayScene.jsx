@@ -32,27 +32,15 @@ export default function ReplayScene({ dnfMode, dsqMode }) {
     let app;
     let isMounted = true;
     
-    async function fetchReplayWithRetry(url, delay = 500) {
+    async function waitForBackend(delay = 500) {
       while (true) {
         try {
-          const res = await fetch(url);
+          const res = await fetch("http://localhost:5000/status");
+          const data = await res.json();
 
-          if (res.ok) {
-            const buffer = await res.arrayBuffer();
-
-            if (buffer.byteLength < 8) throw new Error("Too small");
-
-            const dv = new DataView(buffer);
-            const headerLen = dv.getUint32(0, true);
-
-            if (4 + headerLen > buffer.byteLength) {
-              throw new Error("Incomplete file");
-            }
-
-            return buffer;
-          }
+          if (data.ready) return;
         } catch (err) {
-          console.log("Retrying...", err.message);
+          console.log("Backend not ready, retrying...", err);
         }
 
         await new Promise(r => setTimeout(r, delay));
@@ -60,16 +48,11 @@ export default function ReplayScene({ dnfMode, dsqMode }) {
     }
 
     async function init() {
-      
-      let buffer;
 
-      try {
-        buffer = await fetchReplayWithRetry(`/${replayFile}`);
-      } catch (err) {
-        console.error(err);
-        setIsLoading(false);
-        return;
-      }
+      await waitForBackend(); 
+      
+      const res = await fetch(`/${replayFile}`);
+      const buffer = await res.arrayBuffer();
 
       if (!isMounted) return;
 
