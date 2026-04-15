@@ -149,7 +149,7 @@ def generate_smooth_track(track_x, track_y, steps=20):
     return out_x, out_y
 
 @numba.njit(cache=True)
-def snap_to_track(x_meas, y_meas, track_x, track_y):
+def legacy_snap_to_track(x_meas, y_meas, track_x, track_y):
 
     n = len(x_meas)
     m = len(track_x)
@@ -251,6 +251,85 @@ def snap_to_track(x_meas, y_meas, track_x, track_y):
         snapped_x[i] = best_x
         snapped_y[i] = best_y
         last_best_j = best_j
+
+    return snapped_x, snapped_y
+
+@numba.njit(cache=True)
+def snap_to_track(x_meas, y_meas, track_x, track_y):
+
+    n = len(x_meas)
+    m = len(track_x)
+
+    snapped_x = numpy.zeros(n)
+    snapped_y = numpy.zeros(n)
+
+    # precompute segment vectors
+    seg_dx = numpy.zeros(m - 1)
+    seg_dy = numpy.zeros(m - 1)
+    seg_len = numpy.zeros(m - 1)
+
+    for j in range(m - 1):
+        dx = track_x[j + 1] - track_x[j]
+        dy = track_y[j + 1] - track_y[j]
+        seg_dx[j] = dx
+        seg_dy[j] = dy
+        seg_len[j] = dx * dx + dy * dy
+
+    progress = 0.0  # float index
+
+    for i in range(n):
+
+        px = x_meas[i]
+        py = y_meas[i]
+
+        best_dist = 1e99
+        best_x = px
+        best_y = py
+        best_progress = progress
+
+        start = int(progress)
+        end = min(start + 25, m - 2)   # 🔥 small forward window
+
+        for j in range(start, end):
+
+            dx = seg_dx[j]
+            dy = seg_dy[j]
+            length_sq = seg_len[j]
+
+            if length_sq == 0.0:
+                continue
+
+            x1 = track_x[j]
+            y1 = track_y[j]
+
+            t = ((px - x1) * dx + (py - y1) * dy) / length_sq
+            if t < 0.0:
+                t = 0.0
+            elif t > 1.0:
+                t = 1.0
+
+            proj_x = x1 + t * dx
+            proj_y = y1 + t * dy
+
+            dist = (px - proj_x) ** 2 + (py - proj_y) ** 2
+
+            if dist < best_dist:
+                best_dist = dist
+                best_x = proj_x
+                best_y = proj_y
+                best_progress = j + t
+
+        # 🔁 smooth forward-only motion
+        if best_progress < progress:
+            best_progress = progress
+
+        snapped_x[i] = best_x
+        snapped_y[i] = best_y
+        progress = best_progress
+
+        # 🔁 lap wrap (clean, no snapping bug)
+        if progress >= m - 2:
+            progress -= (m - 2)
 
     return snapped_x, snapped_y
 
