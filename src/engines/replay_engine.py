@@ -263,7 +263,6 @@ def snap_to_track(x_meas, y_meas, track_x, track_y):
     snapped_x = numpy.zeros(n)
     snapped_y = numpy.zeros(n)
 
-    # precompute segment vectors
     seg_dx = numpy.zeros(m - 1)
     seg_dy = numpy.zeros(m - 1)
     seg_len = numpy.zeros(m - 1)
@@ -275,7 +274,7 @@ def snap_to_track(x_meas, y_meas, track_x, track_y):
         seg_dy[j] = dy
         seg_len[j] = dx * dx + dy * dy
 
-    progress = 0.0  # float index
+    progress = 0.0
 
     for i in range(n):
 
@@ -288,7 +287,7 @@ def snap_to_track(x_meas, y_meas, track_x, track_y):
         best_progress = progress
 
         start = int(progress)
-        end = min(start + 25, m - 2)   # 🔥 small forward window
+        end = min(start + 25, m - 2) 
 
         for j in range(start, end):
 
@@ -319,7 +318,6 @@ def snap_to_track(x_meas, y_meas, track_x, track_y):
                 best_y = proj_y
                 best_progress = j + t
 
-        # 🔁 smooth forward-only motion
         if best_progress < progress:
             best_progress = progress
 
@@ -327,7 +325,6 @@ def snap_to_track(x_meas, y_meas, track_x, track_y):
         snapped_y[i] = best_y
         progress = best_progress
 
-        # 🔁 lap wrap (clean, no snapping bug)
         if progress >= m - 2:
             progress -= (m - 2)
 
