@@ -1084,18 +1084,6 @@ export default function Landing() {
                     vectorEffect="non-scaling-stroke"
                     shapeRendering="geometricPrecision"
                   />
-                  <polyline
-                    className={`telemetry-flow ${lineClass}`}
-                    points={points}
-                    fill="none"
-                    stroke={i === 0 ? "#FF5A6E" : i === 1 ? "#A4A4AB" : "#6A6A72"}
-                    strokeWidth={i === 0 ? "2.4" : "2"}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={i === 0 ? "0.95" : i === 1 ? "0.72" : "0.5"}
-                    vectorEffect="non-scaling-stroke"
-                    shapeRendering="geometricPrecision"
-                  />
                   {i < 2 ? (
                     <circle r={i === 0 ? "3.2" : "2.6"} fill={i === 0 ? "#E8001D" : "#74747A"} opacity={i === 0 ? "0.95" : "0.55"}>
                       <animateMotion dur={i === 0 ? "2.8s" : "4.2s"} repeatCount="indefinite" calcMode="linear" path={path} />
@@ -1316,12 +1304,12 @@ export default function Landing() {
                   />
                 ))}
               </div>
-              <div style={{
-                position: "absolute",
-                inset: "14% 4% 14% 0",
-                background: "linear-gradient(90deg, rgba(12,12,13,0.96) 0%, rgba(12,12,13,0.78) 46%, rgba(12,12,13,0.12) 100%)",
-                filter: "blur(12px)",
-              }} />
+            <div style={{
+              position: "absolute",
+              inset: "14% 4% 14% 0",
+              background: "linear-gradient(90deg, rgba(12,12,13,0.94) 0%, rgba(12,12,13,0.72) 42%, rgba(52,5,11,0.18) 78%, rgba(82,8,18,0.12) 100%)",
+              filter: "blur(12px)",
+            }} />
               <h2 style={{
                 fontFamily: "'Instrument Serif', serif", fontWeight: 400,
                 fontSize: "clamp(22px, 3.2vw, 40px)", color: "#E0E0DA",
