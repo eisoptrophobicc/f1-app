@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const NAV_LEFT = ["Standings", "Calendar"];
 const GALLERY_TABS = ["Overview", "Drivers", "Constructors", "Momentum"];
@@ -12,6 +12,8 @@ const SESSIONS = [
     badge: "P1",
     value: "331",
     unit: "pts",
+    delta: "+44 gap",
+    spark: [30, 34, 38, 44, 42, 48, 54, 58],
     stats: [
       ["Wins", "9"],
       ["Podiums", "14"],
@@ -26,6 +28,8 @@ const SESSIONS = [
     badge: "P1",
     value: "568",
     unit: "pts",
+    delta: "+36 lead",
+    spark: [24, 30, 36, 39, 46, 52, 57, 64],
     stats: [
       ["Wins", "11"],
       ["Podiums", "22"],
@@ -40,6 +44,8 @@ const SESSIONS = [
     badge: "+18",
     value: "287",
     unit: "pts",
+    delta: "last 5 up",
+    spark: [18, 21, 26, 24, 32, 36, 42, 47],
     stats: [
       ["Last 5", "102"],
       ["Wins", "4"],
@@ -54,6 +60,8 @@ const SESSIONS = [
     badge: "P2",
     value: "532",
     unit: "pts",
+    delta: "closing",
+    spark: [28, 29, 31, 34, 38, 37, 41, 45],
     stats: [
       ["Gap", "-36"],
       ["Wins", "5"],
@@ -68,6 +76,8 @@ const SESSIONS = [
     badge: "P2",
     value: "287",
     unit: "pts",
+    delta: "steady gain",
+    spark: [20, 22, 25, 29, 33, 35, 39, 43],
     stats: [
       ["Wins", "4"],
       ["Podiums", "10"],
@@ -82,6 +92,8 @@ const SESSIONS = [
     badge: "P3",
     value: "418",
     unit: "pts",
+    delta: "rising",
+    spark: [16, 18, 20, 24, 27, 31, 34, 39],
     stats: [
       ["Last 3", "54"],
       ["Podiums", "9"],
@@ -91,13 +103,25 @@ const SESSIONS = [
   },
 ];
 
-function SessionCard({ session }) {
+function SessionCard({ session, motionStyle }) {
   const [hovered, setHovered] = useState(false);
+  const sparkMin = Math.min(...session.spark);
+  const sparkMax = Math.max(...session.spark);
+  const sparkRange = Math.max(1, sparkMax - sparkMin);
+  const sparkPath = `M ${session.spark
+    .map((y, x) => {
+      const normalized = (y - sparkMin) / sparkRange;
+      const plottedY = 82 - normalized * 44;
+      return `${x * 31},${plottedY}`;
+    })
+    .join(" L ")}`;
   return (
     <div
+      className="session-card reveal-up"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        "--card-delay": `${session.id * 90}ms`,
         background: hovered ? "#161618" : "#111113",
         aspectRatio: "1 / 1",
         position: "relative",
@@ -109,18 +133,19 @@ function SessionCard({ session }) {
         justifyContent: "space-between",
         padding: "20px",
         border: "1px solid #1e1e20",
+        ...motionStyle(session.id * 90),
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "22px" }}>
-        <div>
-          <div style={{ fontSize: "10px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", marginBottom: "8px" }}>{session.sub}</div>
-          <div style={{ fontSize: "13px", fontWeight: 400, color: "#C8C8C2", fontFamily: "'Instrument Serif', serif", marginBottom: "14px" }}>{session.label}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+      <div className="session-card-head" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "22px" }}>
+        <div className="session-card-copy">
+          <div className="card-subline" style={{ fontSize: "10px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", marginBottom: "8px" }}>{session.sub}</div>
+          <div className="card-title" style={{ fontSize: "13px", fontWeight: 400, color: "#C8C8C2", fontFamily: "'Instrument Serif', serif", marginBottom: "14px" }}>{session.label}</div>
+          <div className="card-value-row" style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
             <span style={{ fontSize: "36px", lineHeight: 1, color: "#E8E8E2", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.04em" }}>{session.value}</span>
             <span style={{ fontSize: "11px", color: "#666", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>{session.unit}</span>
           </div>
         </div>
-        <div style={{
+        <div className="card-badge" style={{
           minWidth: "48px",
           height: "48px",
           borderRadius: "12px",
@@ -137,14 +162,91 @@ function SessionCard({ session }) {
           {session.badge}
         </div>
       </div>
-      <div style={{
-        marginTop: "auto",
+      <div className="card-signal-panel" style={{
+        marginBottom: "16px",
+        background: "#0D0D0F",
+        border: "1px solid #1A1A1D",
+        padding: "12px 12px 12px",
+        minHeight: "148px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+          <span style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>FORM SIGNAL</span>
+          <span style={{ fontSize: "9px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+            <span style={{ fontSize: "11px", lineHeight: 1 }}>↗</span>
+            {session.delta}
+          </span>
+        </div>
+        <svg className="card-signal-graph" viewBox="0 0 220 104" preserveAspectRatio="none" style={{ width: "100%", height: "102px", display: "block", flex: 1 }}>
+          <line x1="0" y1="82" x2="220" y2="82" stroke="#161618" strokeWidth="1" />
+          <path
+            d={sparkPath}
+            fill="none"
+            stroke="#E8001D"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="card-signal-line"
+          />
+          <path
+            d={`${sparkPath} L 217,82 L 0,82 Z`}
+            fill={`url(#cardGlow-${session.id})`}
+            opacity="0.28"
+            className="card-signal-fill"
+          />
+          <path
+            d={sparkPath}
+            fill="none"
+            stroke="#FF4D67"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.16"
+            className="card-signal-trace"
+          />
+          <g>
+            <circle r="6.4" fill="rgba(232,0,29,0.14)" filter={`url(#cardSignalGlow-${session.id})`}>
+              <animateMotion
+                dur={`${5.8 + session.id * 0.45}s`}
+                repeatCount="indefinite"
+                calcMode="linear"
+                keyTimes="0;1"
+                keyPoints="0;1"
+                path={sparkPath}
+              />
+            </circle>
+            <circle r="2.7" fill="#FF3B52">
+              <animateMotion
+                dur={`${5.8 + session.id * 0.45}s`}
+                repeatCount="indefinite"
+                calcMode="linear"
+                keyTimes="0;1"
+                keyPoints="0;1"
+                path={sparkPath}
+              />
+            </circle>
+          </g>
+          <defs>
+            <linearGradient id={`cardGlow-${session.id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#E8001D" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
+            </linearGradient>
+            <filter id={`cardSignalGlow-${session.id}`} x="-120%" y="-120%" width="340%" height="340%">
+              <feGaussianBlur stdDeviation="2.4" />
+            </filter>
+          </defs>
+        </svg>
+      </div>
+      <div className="session-card-stats" style={{
+        marginTop: "0",
         display: "grid",
         gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
         gap: "10px",
       }}>
         {session.stats.map(([key, val]) => (
-          <div key={key} style={{
+          <div key={key} className="stat-tile" style={{
             background: "#0D0D0F",
             border: "1px solid #1A1A1D",
             padding: "10px 12px",
@@ -162,18 +264,35 @@ function SessionCard({ session }) {
   );
 }
 
-export default function F1ReplayLanding() {
+export default function Landing() {
   const [activeFilter, setActiveFilter] = useState("Replay");
   const [activeGallery, setActiveGallery] = useState("Overview");
+  const [animationsReady, setAnimationsReady] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAnimationsReady(true), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const motionStyle = (delay = 0) => (
+    animationsReady
+      ? { animation: `revealUp 780ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms both` }
+      : { opacity: 0, transform: "translateY(18px)" }
+  );
 
   return (
-    <>
+    <div data-motion-ready={animationsReady ? "true" : "false"}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=DM+Mono:wght@300;400;500&display=swap');
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        body { background: #0A0A0B; color: #888; font-family: 'Geist', sans-serif; -webkit-font-smoothing: antialiased; }
+        body {
+          background: #0A0A0B;
+          color: #888;
+          font-family: 'Geist', sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
 
         .nav-link {
           background: none; border: none; cursor: pointer;
@@ -243,9 +362,592 @@ export default function F1ReplayLanding() {
           color: #555;
           font-family: 'DM Mono', monospace;
         }
+
+        .surface-glow {
+          position: relative;
+          isolation: isolate;
+          overflow: hidden;
+        }
+
+        .surface-glow::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          background:
+            radial-gradient(circle at 18% 30%, rgba(232,0,29,0.035), transparent 32%),
+            radial-gradient(circle at 78% 18%, rgba(255,255,255,0.015), transparent 22%),
+            linear-gradient(180deg, rgba(255,255,255,0.006) 0%, rgba(255,255,255,0) 100%);
+          opacity: 0.9;
+        }
+
+        .surface-glow::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          opacity: 0.022;
+          mix-blend-mode: screen;
+          background-image:
+            radial-gradient(rgba(255,255,255,0.05) 0.5px, transparent 0.5px),
+            radial-gradient(rgba(232,0,29,0.02) 0.35px, transparent 0.35px);
+          background-size: 7px 7px, 11px 11px;
+          background-position: 0 0, 3px 4px;
+        }
+
+        .surface-glow > * {
+          position: relative;
+          z-index: 1;
+        }
+
+        .surface-glow-soft::before {
+          background:
+            radial-gradient(circle at 18% 34%, rgba(232,0,29,0.012), transparent 38%),
+            radial-gradient(circle at 82% 14%, rgba(255,255,255,0.01), transparent 20%),
+            linear-gradient(180deg, rgba(255,255,255,0.005) 0%, rgba(255,255,255,0) 100%);
+        }
+
+        .surface-glow-soft::after {
+          opacity: 0.012;
+        }
+
+        @keyframes revealUp {
+          from {
+            opacity: 0;
+            transform: translateY(18px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes softFloat {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+
+        @keyframes pulseGlow {
+          0%, 100% {
+            box-shadow: 0 0 0 rgba(232, 0, 29, 0);
+          }
+          50% {
+            box-shadow: 0 0 18px rgba(232, 0, 29, 0.08);
+          }
+        }
+
+        @keyframes fieldPulse {
+          0%, 100% {
+            transform: scale(1) translateY(0px);
+            opacity: 0.72;
+          }
+          50% {
+            transform: scale(1.018) translateY(-2px);
+            opacity: 0.94;
+          }
+        }
+
+        @keyframes pathDriftA {
+          0%, 100% {
+            transform: translate3d(0px, 0px, 0px);
+          }
+          50% {
+            transform: translate3d(0px, -3px, 0px);
+          }
+        }
+
+        @keyframes pathDriftB {
+          0%, 100% {
+            transform: translate3d(0px, 0px, 0px);
+          }
+          50% {
+            transform: translate3d(2px, 2px, 0px);
+          }
+        }
+
+        @keyframes orbitSpin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes orbitPulse {
+          0%, 100% {
+            opacity: 0.75;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.03);
+          }
+        }
+
+        @keyframes traceFlow {
+          from {
+            stroke-dashoffset: 0;
+          }
+          to {
+            stroke-dashoffset: -48;
+          }
+        }
+
+        @keyframes stripeBreathe {
+          0%, 100% {
+            opacity: 0.22;
+            transform: translateY(0px);
+          }
+          50% {
+            opacity: 0.5;
+            transform: translateY(-4px);
+          }
+        }
+
+        @keyframes cloudDrift {
+          0%, 100% {
+            transform: translate3d(0px, 0px, 0px) scale(1);
+            opacity: 0.18;
+          }
+          50% {
+            transform: translate3d(3px, -4px, 0px) scale(1.05);
+            opacity: 0.32;
+          }
+        }
+
+        @keyframes shellPrecess {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes electronJitter {
+          0%, 100% {
+            transform: scale(1) translateY(0px);
+            opacity: 0.72;
+          }
+          50% {
+            transform: scale(1.18) translateY(-1px);
+            opacity: 1;
+          }
+        }
+
+        @keyframes replayHexPulse {
+          0%, 100% {
+            opacity: 0.42;
+            transform: translateY(0px);
+          }
+          50% {
+            opacity: 0.82;
+            transform: translateY(-2px);
+          }
+        }
+
+        @keyframes kalmanPanelGlow {
+          0%, 100% {
+            opacity: 0.75;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
+
+        @keyframes premiumSignalGlow {
+          0%, 100% {
+            opacity: 0.18;
+            filter: blur(2px);
+          }
+          50% {
+            opacity: 0.34;
+            filter: blur(4px);
+          }
+        }
+
+        @keyframes premiumSignalFill {
+          0%, 100% {
+            opacity: 0.16;
+          }
+          50% {
+            opacity: 0.26;
+          }
+        }
+
+        .reveal-up {
+          opacity: 0;
+        }
+
+        [data-motion-ready="true"] .reveal-up {
+          animation: revealUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .soft-float {
+          transform: translateY(0px);
+        }
+
+        [data-motion-ready="true"] .soft-float {
+          animation: softFloat 7s ease-in-out infinite;
+        }
+
+        .session-card {
+          transition: transform 0.25s ease, border-color 0.25s ease, background 0.2s;
+        }
+
+        .session-card:hover {
+          transform: translateY(-4px);
+          border-color: #2A2A2D;
+        }
+
+        .stat-tile {
+          transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+        }
+
+        .session-card:hover .stat-tile {
+          transform: translateY(-1px);
+          border-color: #26262A;
+          background: #101013;
+        }
+
+        [data-motion-ready="true"] .pulse-glow {
+          animation: pulseGlow 4.5s ease-in-out infinite;
+        }
+
+        .field-shape-svg path,
+        .field-shape-svg circle {
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+
+        [data-motion-ready="true"] .field-shape-card {
+          animation: pulseGlow 6s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .field-shape-svg {
+          animation: fieldPulse 7s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .field-shape-svg .shape-a {
+          animation: pathDriftA 6.5s ease-in-out infinite;
+          stroke-dasharray: 18 14;
+          animation-name: pathDriftA, traceFlow;
+          animation-duration: 6.5s, 4.8s;
+          animation-timing-function: ease-in-out, linear;
+          animation-iteration-count: infinite, infinite;
+        }
+
+        [data-motion-ready="true"] .field-shape-svg .shape-b {
+          animation: pathDriftB 7.2s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .field-shape-svg .shape-c {
+          animation: pathDriftA 8.2s ease-in-out infinite reverse;
+        }
+
+        [data-motion-ready="true"] .field-shape-svg .field-dot {
+          animation: orbitPulse 4.8s ease-in-out infinite;
+        }
+
+        .cta-orbit {
+          transform-origin: 50% 50%;
+        }
+
+        [data-motion-ready="true"] .cta-orbit {
+          animation: revealUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 460ms both;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .quantum-shell {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: shellPrecess 28s linear infinite;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-b {
+          animation-duration: 36s;
+          animation-direction: reverse;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-c {
+          animation-duration: 44s;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-d {
+          animation-duration: 24s;
+          animation-direction: reverse;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-e {
+          animation-duration: 31s;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-f {
+          animation-duration: 18s;
+          animation-direction: reverse;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .electron-cloud {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: cloudDrift 8s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .electron-cloud.cloud-b {
+          animation-duration: 11s;
+          animation-direction: reverse;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .electron-cloud.cloud-c {
+          animation-duration: 13s;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .orbit-core {
+          animation: orbitPulse 5.2s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .cta-orbit .quantum-electron {
+          animation: electronJitter 3.8s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .replay-stripe-field .stripe-line {
+          animation: stripeBreathe 6.6s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .replay-stripe-field .stripe-line:nth-child(2n) {
+          animation-duration: 8.2s;
+        }
+
+        [data-motion-ready="true"] .replay-stripe-field .stripe-line:nth-child(3n) {
+          animation-duration: 9.4s;
+        }
+
+        [data-motion-ready="true"] .telemetry-graph .telemetry-line {
+          stroke-dasharray: 18 12;
+          animation: traceFlow 2.6s linear infinite;
+        }
+
+        [data-motion-ready="true"] .telemetry-graph .telemetry-line.telemetry-secondary {
+          stroke-dasharray: 12 14;
+          animation-duration: 3.8s;
+        }
+
+        [data-motion-ready="true"] .telemetry-graph .telemetry-line.telemetry-tertiary {
+          stroke-dasharray: 10 18;
+          animation-duration: 5.2s;
+        }
+
+        [data-motion-ready="true"] .card-signal-panel {
+          box-shadow: inset 0 0 0 rgba(232,0,29,0);
+        }
+
+        [data-motion-ready="true"] .card-signal-graph .card-signal-fill {
+          animation: premiumSignalFill 9.2s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .card-signal-graph .card-signal-trace {
+          animation: premiumSignalGlow 11.6s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .replay-hex-stack .hex-layer {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: replayHexPulse 7s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .replay-hex-stack {
+          filter: drop-shadow(0 0 12px rgba(232,0,29,0.12));
+        }
+
+        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-1 { animation-delay: 180ms; }
+        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-2 { animation-delay: 360ms; }
+        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-3 { animation-delay: 540ms; }
+        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-4 { animation-delay: 720ms; }
+
+        [data-motion-ready="true"] .kalman-visual .state-halo,
+        [data-motion-ready="true"] .kalman-visual .state-ring {
+          animation: orbitPulse 6.2s ease-in-out infinite;
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+
+        [data-motion-ready="true"] .kalman-visual .state-panel {
+          animation: kalmanPanelGlow 6.8s ease-in-out infinite;
+        }
+
+        [data-motion-ready="true"] .kalman-visual .panel-line {
+          stroke-dasharray: 12 12;
+          animation: traceFlow 3.2s linear infinite;
+        }
+
+        .landing-nav > div > *,
+        .hero-copy > *,
+        .hero-side > *,
+        .filter-group > *,
+        .feature-copy > *,
+        .feature-visual-stack > *,
+        .feature-list > *,
+        .snapshot-card > *,
+        .banner-copy > *,
+        .banner-meta > *,
+        .gallery-header > *,
+        .gallery-tabs > *,
+        .cta-copy > *,
+        .cta-center > *,
+        .footer-copy > *,
+        .footer-links > *,
+        .watermark > *,
+        .session-card-head > *,
+          .session-card-copy > *,
+          .session-card-stats > * {
+          opacity: 0;
+        }
+
+        [data-motion-ready="true"] .landing-nav > div > *,
+        [data-motion-ready="true"] .hero-copy > *,
+        [data-motion-ready="true"] .hero-side > *,
+        [data-motion-ready="true"] .filter-group > *,
+        [data-motion-ready="true"] .feature-copy > *,
+        [data-motion-ready="true"] .feature-visual-stack > *,
+        [data-motion-ready="true"] .feature-list > *,
+        [data-motion-ready="true"] .snapshot-card > *,
+        [data-motion-ready="true"] .banner-copy > *,
+        [data-motion-ready="true"] .banner-meta > *,
+        [data-motion-ready="true"] .gallery-header > *,
+        [data-motion-ready="true"] .gallery-tabs > *,
+        [data-motion-ready="true"] .cta-copy > *,
+        [data-motion-ready="true"] .cta-center > *,
+        [data-motion-ready="true"] .footer-copy > *,
+        [data-motion-ready="true"] .footer-links > *,
+        [data-motion-ready="true"] .watermark > *,
+        [data-motion-ready="true"] .session-card-head > *,
+        [data-motion-ready="true"] .session-card-copy > *,
+        [data-motion-ready="true"] .session-card-stats > * {
+          animation: revealUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        [data-motion-ready="true"] .landing-nav > div:first-child > *:nth-child(1) { animation-delay: 80ms; }
+        [data-motion-ready="true"] .landing-nav > div:first-child > *:nth-child(2) { animation-delay: 140ms; }
+        [data-motion-ready="true"] .landing-nav .brand-title { animation-delay: 120ms; }
+        [data-motion-ready="true"] .landing-nav .brand-subtitle { animation-delay: 180ms; }
+        [data-motion-ready="true"] .landing-nav > div:last-child > *:nth-child(1) { animation-delay: 160ms; }
+        [data-motion-ready="true"] .landing-nav > div:last-child > *:nth-child(2) { animation-delay: 220ms; }
+
+        [data-motion-ready="true"] .hero-copy > *:nth-child(1) { animation-delay: 180ms; }
+        [data-motion-ready="true"] .hero-side > *:nth-child(1) { animation-delay: 260ms; }
+        [data-motion-ready="true"] .hero-side > *:nth-child(2) { animation-delay: 340ms; }
+
+        [data-motion-ready="true"] .filter-group > *:nth-child(1) { animation-delay: 220ms; }
+        [data-motion-ready="true"] .filter-group > *:nth-child(2) { animation-delay: 270ms; }
+        [data-motion-ready="true"] .filter-group > *:nth-child(3) { animation-delay: 320ms; }
+        [data-motion-ready="true"] .filter-group > *:nth-child(4) { animation-delay: 370ms; }
+        .filter-stamp { opacity: 0; }
+        [data-motion-ready="true"] .filter-stamp { animation: revealUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 420ms both; }
+
+        [data-motion-ready="true"] .telemetry-panel > *:nth-child(1) { animation-delay: 260ms; }
+        [data-motion-ready="true"] .telemetry-panel > *:nth-child(2) { animation-delay: 320ms; }
+        [data-motion-ready="true"] .telemetry-panel > *:nth-child(3) { animation-delay: 380ms; }
+        [data-motion-ready="true"] .telemetry-panel > *:nth-child(4) { animation-delay: 440ms; }
+
+        [data-motion-ready="true"] .replay-panel > *:nth-child(1) { animation-delay: 300ms; }
+        [data-motion-ready="true"] .replay-panel > *:nth-child(2) { animation-delay: 360ms; }
+        [data-motion-ready="true"] .replay-panel > *:nth-child(3) { animation-delay: 430ms; }
+        [data-motion-ready="true"] .replay-panel-copy > *:nth-child(1) { animation-delay: 420ms; }
+        [data-motion-ready="true"] .replay-panel-copy > *:nth-child(2) { animation-delay: 500ms; }
+
+        [data-motion-ready="true"] .feature-copy > *:nth-child(1) { animation-delay: 300ms; }
+        [data-motion-ready="true"] .feature-copy > *:nth-child(2) { animation-delay: 360ms; }
+        [data-motion-ready="true"] .feature-copy > *:nth-child(3) { animation-delay: 430ms; }
+        [data-motion-ready="true"] .feature-copy > *:nth-child(4) { animation-delay: 500ms; }
+        [data-motion-ready="true"] .feature-visual-stack > *:nth-child(1) { animation-delay: 380ms; }
+        [data-motion-ready="true"] .feature-visual-stack > *:nth-child(2) { animation-delay: 460ms; }
+        [data-motion-ready="true"] .feature-list > *:nth-child(1) { animation-delay: 420ms; }
+        [data-motion-ready="true"] .feature-list > *:nth-child(2) { animation-delay: 470ms; }
+        [data-motion-ready="true"] .feature-list > *:nth-child(3) { animation-delay: 520ms; }
+        [data-motion-ready="true"] .snapshot-card > *:nth-child(1) { animation-delay: 540ms; }
+        [data-motion-ready="true"] .snapshot-card > *:nth-child(2) { animation-delay: 590ms; }
+        [data-motion-ready="true"] .snapshot-card > *:nth-child(3) { animation-delay: 640ms; }
+        [data-motion-ready="true"] .snapshot-card > *:nth-child(4) { animation-delay: 690ms; }
+
+        [data-motion-ready="true"] .banner-copy > *:nth-child(1) { animation-delay: 240ms; }
+        [data-motion-ready="true"] .banner-copy > *:nth-child(2) { animation-delay: 320ms; }
+        [data-motion-ready="true"] .banner-meta > *:nth-child(1) { animation-delay: 300ms; }
+        [data-motion-ready="true"] .banner-meta > *:nth-child(2) { animation-delay: 360ms; }
+        .banner-note { opacity: 0; }
+        [data-motion-ready="true"] .banner-note { animation: revealUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 440ms both; }
+
+        [data-motion-ready="true"] .gallery-header > *:nth-child(1) { animation-delay: 280ms; }
+        [data-motion-ready="true"] .gallery-header > *:nth-child(2) { animation-delay: 340ms; }
+        [data-motion-ready="true"] .gallery-tabs > *:nth-child(1) { animation-delay: 360ms; }
+        [data-motion-ready="true"] .gallery-tabs > *:nth-child(2) { animation-delay: 410ms; }
+        [data-motion-ready="true"] .gallery-tabs > *:nth-child(3) { animation-delay: 460ms; }
+        [data-motion-ready="true"] .gallery-tabs > *:nth-child(4) { animation-delay: 510ms; }
+
+        [data-motion-ready="true"] .cta-copy > *:nth-child(1) { animation-delay: 260ms; }
+        [data-motion-ready="true"] .cta-copy > *:nth-child(2) { animation-delay: 330ms; }
+        [data-motion-ready="true"] .cta-copy > *:nth-child(3) { animation-delay: 400ms; }
+        [data-motion-ready="true"] .cta-center > *:nth-child(1) { animation-delay: 340ms; }
+        [data-motion-ready="true"] .cta-center > *:nth-child(2) { animation-delay: 420ms; }
+        [data-motion-ready="true"] .cta-center > *:nth-child(3) { animation-delay: 500ms; }
+        .cta-orbit { opacity: 0; }
+
+        [data-motion-ready="true"] .footer-copy > *:nth-child(1) { animation-delay: 180ms; }
+        [data-motion-ready="true"] .footer-copy > *:nth-child(2) { animation-delay: 240ms; }
+        [data-motion-ready="true"] .footer-links > *:nth-child(1) { animation-delay: 220ms; }
+        [data-motion-ready="true"] .footer-links > *:nth-child(2) { animation-delay: 270ms; }
+        [data-motion-ready="true"] .footer-links > *:nth-child(3) { animation-delay: 320ms; }
+        [data-motion-ready="true"] .footer-links > *:nth-child(4) { animation-delay: 370ms; }
+        [data-motion-ready="true"] .watermark > * { animation-delay: 320ms; }
+
+        [data-motion-ready="true"] .session-card-head > *:nth-child(1) { animation-delay: calc(var(--card-delay, 0ms) + 70ms); }
+        [data-motion-ready="true"] .session-card-head > *:nth-child(2) { animation-delay: calc(var(--card-delay, 0ms) + 120ms); }
+        [data-motion-ready="true"] .session-card-copy > *:nth-child(1) { animation-delay: calc(var(--card-delay, 0ms) + 90ms); }
+        [data-motion-ready="true"] .session-card-copy > *:nth-child(2) { animation-delay: calc(var(--card-delay, 0ms) + 130ms); }
+        [data-motion-ready="true"] .session-card-copy > *:nth-child(3) { animation-delay: calc(var(--card-delay, 0ms) + 170ms); }
+        [data-motion-ready="true"] .session-card-stats > *:nth-child(1) { animation-delay: calc(var(--card-delay, 0ms) + 220ms); }
+        [data-motion-ready="true"] .session-card-stats > *:nth-child(2) { animation-delay: calc(var(--card-delay, 0ms) + 260ms); }
+        [data-motion-ready="true"] .session-card-stats > *:nth-child(3) { animation-delay: calc(var(--card-delay, 0ms) + 300ms); }
+        [data-motion-ready="true"] .session-card-stats > *:nth-child(4) { animation-delay: calc(var(--card-delay, 0ms) + 340ms); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .reveal-up,
+          .soft-float,
+          .pulse-glow,
+          .landing-nav > div > *,
+          .hero-copy > *,
+          .hero-side > *,
+          .filter-group > *,
+          .feature-copy > *,
+          .feature-visual-stack > *,
+          .feature-list > *,
+          .snapshot-card > *,
+          .banner-copy > *,
+          .banner-meta > *,
+          .gallery-header > *,
+          .gallery-tabs > *,
+          .cta-copy > *,
+          .cta-center > *,
+          .footer-copy > *,
+          .footer-links > *,
+          .watermark > *,
+          .session-card-head > *,
+          .session-card-copy > *,
+          .session-card-stats > * {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
       `}</style>
 
-      <nav style={{
+      <div style={{ position: "relative", zIndex: 1 }}>
+      <nav className="landing-nav" style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 32px", height: "48px",
         borderBottom: "1px solid #161618",
@@ -255,8 +957,8 @@ export default function F1ReplayLanding() {
           {NAV_LEFT.map((l) => <button key={l} className="nav-link">{"-> "}{l}</button>)}
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-          <span style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "16px", letterSpacing: "-0.01em", lineHeight: 1, color: "#E0E0DA" }}>Lumen</span>
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", color: "#333", textTransform: "uppercase" }}>Formula One Analytics</span>
+          <span className="brand-title" style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "16px", letterSpacing: "-0.01em", lineHeight: 1, color: "#E0E0DA", ...motionStyle(120) }}>Lumen</span>
+          <span className="brand-subtitle" style={{ fontFamily: "'DM Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", color: "#333", textTransform: "uppercase", ...motionStyle(180) }}>Formula One Analytics</span>
         </div>
         <div style={{ display: "flex", gap: "28px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
           <button className="nav-link">Sessions</button>
@@ -264,20 +966,24 @@ export default function F1ReplayLanding() {
         </div>
       </nav>
 
-      <section style={{
+      <section className="surface-glow" style={{
         padding: "48px 32px 40px",
         display: "grid", gridTemplateColumns: "1fr 300px",
         gap: "40px", alignItems: "start",
         borderBottom: "1px solid #161618",
+        background: "radial-gradient(circle at 14% 24%, rgba(232,0,29,0.08), transparent 28%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)",
       }}>
-        <h1 style={{
+        <div className="hero-copy">
+        <h1 className="reveal-up" style={{
           fontFamily: "'Instrument Serif', serif", fontWeight: 400,
           fontSize: "clamp(36px, 5vw, 60px)", lineHeight: 1.06,
           letterSpacing: "-0.02em", color: "#E8E8E2", maxWidth: "600px",
+          animationDelay: "80ms",
         }}>
           Standings, Calendars, and Telemetry Replay - Every Season, Every Circuit
         </h1>
-        <div style={{ paddingTop: "6px" }}>
+        </div>
+        <div className="hero-side" style={{ paddingTop: "6px" }}>
           <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.75, marginBottom: "22px" }}>
             Driver standings, race calendars, session overviews, and animated telemetry replay - all in one place, powered by FastF1.
           </p>
@@ -290,20 +996,21 @@ export default function F1ReplayLanding() {
         padding: "0 32px", height: "40px",
         borderBottom: "1px solid #161618", background: "#0A0A0B",
       }}>
-        <div style={{ display: "flex", gap: "28px" }}>
+        <div className="filter-group" style={{ display: "flex", gap: "28px" }}>
           {FILTER_TABS.map((t) => (
             <button key={t} className={`filter-tab${activeFilter === t ? " active" : ""}`}
               onClick={() => setActiveFilter(t)}>{t}</button>
           ))}
         </div>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "#333", letterSpacing: "0.1em" }}>ALL SEASONS . ALL CIRCUITS</span>
+        <span className="filter-stamp" style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "#333", letterSpacing: "0.1em" }}>ALL SEASONS . ALL CIRCUITS</span>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "360px" }}>
-        <div style={{
-          background: "#0C0C0D", position: "relative", overflow: "hidden",
+        <div className="telemetry-panel reveal-up" style={{
+          background: "radial-gradient(circle at 18% 24%, rgba(232,0,29,0.06), transparent 28%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
           display: "flex", flexDirection: "column", justifyContent: "space-between",
           padding: "28px", borderRight: "1px solid #161618",
+          animationDelay: "220ms",
         }}>
           <div style={{ fontSize: "11px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em" }}>
             Telemetry Overlay . Driver Comparison
@@ -318,40 +1025,63 @@ export default function F1ReplayLanding() {
               { color: "#E8001D", pts: [35, 12, 28, 8, 22, 40, 18, 32, 10] },
               { color: "#2a2a2a", pts: [45, 28, 40, 22, 35, 52, 28, 44, 24] },
               { color: "#1a1a1a", pts: [55, 40, 50, 35, 48, 62, 40, 55, 36] },
-            ].map((t, i) => (
-              <svg key={i} viewBox="0 0 400 50" preserveAspectRatio="none" style={{ width: "100%", height: "38px" }}>
-                <polyline points={t.pts.map((y, x) => `${x * 50},${y}`).join(" ")}
-                  fill="none" stroke={t.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            ))}
+            ].map((t, i) => {
+              const points = t.pts.map((y, x) => `${x * 50},${y}`).join(" ");
+              const path = `M ${t.pts.map((y, x) => `${x * 50},${y}`).join(" L ")}`;
+              const lineClass = i === 0 ? "telemetry-line telemetry-primary" : i === 1 ? "telemetry-line telemetry-secondary" : "telemetry-line telemetry-tertiary";
+
+              return (
+                <svg key={i} className="telemetry-graph" viewBox="0 0 400 50" preserveAspectRatio="none" style={{ width: "100%", height: "38px" }}>
+                  <polyline
+                    className={lineClass}
+                    points={points}
+                    fill="none"
+                    stroke={t.color}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {i < 2 ? (
+                    <circle r={i === 0 ? "3.2" : "2.6"} fill={i === 0 ? "#E8001D" : "#74747A"} opacity={i === 0 ? "0.95" : "0.55"}>
+                      <animateMotion dur={i === 0 ? "2.8s" : "4.2s"} repeatCount="indefinite" path={path} />
+                    </circle>
+                  ) : null}
+                </svg>
+              );
+            })}
           </div>
           <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>
             SPEED . THROTTLE . BRAKE . DRS
           </div>
         </div>
 
-        <div style={{
-          background: "#0E0E0F", position: "relative", overflow: "hidden",
+        <div className="replay-panel reveal-up" style={{
+          background: "radial-gradient(circle at 72% 20%, rgba(232,0,29,0.08), transparent 24%), linear-gradient(180deg, #0E0E0F 0%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
           display: "flex", flexDirection: "column", justifyContent: "space-between",
           padding: "28px",
+          animationDelay: "300ms",
         }}>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <span style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>PIXI.js Renderer</span>
           </div>
-          <div style={{ position: "absolute", top: "40px", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
-            <svg viewBox="0 0 180 150" width="180" height="150" style={{ opacity: 0.7 }}>
+          <div className="soft-float" style={{ position: "absolute", top: "40px", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
+            <svg className="replay-hex-stack" viewBox="0 0 180 150" width="180" height="150" style={{ opacity: 0.7 }}>
               {[0, 1, 2, 3, 4].map((i) => (
                 <polygon key={i}
+                  className={`hex-layer hex-${i}`}
                   points="90,12 158,52 158,102 90,142 22,102 22,52"
-                  fill={i === 2 ? "rgba(232,0,29,0.04)" : "none"}
-                  stroke={`rgba(232,0,29,${0.04 + i * 0.04})`}
-                  strokeWidth="1"
+                  fill={i === 2 ? "rgba(232,0,29,0.10)" : "none"}
+                  stroke={`rgba(232,0,29,${0.16 + i * 0.09})`}
+                  strokeWidth={i === 2 ? "1.4" : "1.2"}
                   transform={`translate(${(i - 2) * 7},${(i - 2) * 5})`}
                 />
               ))}
+              <circle r="3.4" fill="#E8001D" opacity="1">
+                <animateMotion dur="8s" repeatCount="indefinite" path="M90,12 L158,52 L158,102 L90,142 L22,102 L22,52 Z" />
+              </circle>
             </svg>
           </div>
-          <div>
+          <div className="replay-panel-copy">
             <h2 style={{
               fontFamily: "'Instrument Serif', serif", fontWeight: 400,
               fontSize: "clamp(24px, 3vw, 38px)", color: "#E0E0DA",
@@ -364,11 +1094,12 @@ export default function F1ReplayLanding() {
         </div>
       </div>
 
-      <section style={{
+      <section className="surface-glow" style={{
         display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
         borderTop: "1px solid #161618", borderBottom: "1px solid #161618",
+        background: "radial-gradient(120% 140% at 62% 100%, rgba(232,0,29,0.075) 0%, rgba(232,0,29,0.03) 30%, rgba(232,0,29,0) 62%), linear-gradient(180deg, #0B0B0C 0%, #0A0A0B 55%, #09090A 100%)",
       }}>
-        <div style={{ padding: "40px 32px", borderRight: "1px solid #161618" }}>
+        <div className="feature-copy" style={{ padding: "40px 32px", borderRight: "1px solid #161618" }}>
           <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em", marginBottom: "18px" }}>Lumen</div>
           <h2 style={{
             fontFamily: "'Instrument Serif', serif", fontWeight: 400,
@@ -386,21 +1117,27 @@ export default function F1ReplayLanding() {
         <div style={{
           padding: "32px 24px", borderRight: "1px solid #161618",
           display: "flex", alignItems: "center", justifyContent: "center",
-          background: "#0C0C0D",
+          background: "radial-gradient(circle at 50% 35%, rgba(232,0,29,0.024), transparent 36%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)",
         }}>
-          <div style={{ width: "100%", maxWidth: "220px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px" }}>
+          <div className="feature-visual-stack" style={{ width: "100%", maxWidth: "220px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div className="field-shape-card pulse-glow soft-float" style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px" }}>
               <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "10px" }}>FIELD SHAPE - LIVE MODEL</div>
-              <svg viewBox="0 0 180 100" style={{ width: "100%" }}>
-                <path d="M26,70 C44,30 70,20 92,34 C108,44 122,48 146,28" fill="none" stroke="#222" strokeWidth="7" strokeLinecap="round" />
-                <path d="M24,58 C42,46 70,52 90,42 C112,30 132,48 154,42" fill="none" stroke="#1a1a1a" strokeWidth="5" strokeLinecap="round" />
-                <path d="M30,78 C48,60 64,66 84,58 C110,48 132,66 150,56" fill="none" stroke="#202022" strokeWidth="3" strokeLinecap="round" />
+              <svg className="field-shape-svg" viewBox="0 0 180 100" style={{ width: "100%" }}>
+                <path className="shape-a" d="M26,70 C44,30 70,20 92,34 C108,44 122,48 146,28" fill="none" stroke="#222" strokeWidth="7" strokeLinecap="round" />
+                <path className="shape-b" d="M24,58 C42,46 70,52 90,42 C112,30 132,48 154,42" fill="none" stroke="#1a1a1a" strokeWidth="5" strokeLinecap="round" />
+                <path className="shape-c" d="M30,78 C48,60 64,66 84,58 C110,48 132,66 150,56" fill="none" stroke="#202022" strokeWidth="3" strokeLinecap="round" />
                 {[{ x: 48, y: 47, c: "#E8001D" }, { x: 98, y: 41, c: "#3b82f6" }, { x: 132, y: 50, c: "#f59e0b" }].map((dot, i) => (
-                  <circle key={i} cx={dot.x} cy={dot.y} r="4" fill={dot.c} />
+                  <circle key={i} className="field-dot" cx={dot.x} cy={dot.y} r="4" fill={dot.c} />
                 ))}
-                <circle cx="48" cy="47" r="12" fill="none" stroke="rgba(232,0,29,0.18)" strokeWidth="1" />
-                <circle cx="98" cy="41" r="10" fill="none" stroke="rgba(59,130,246,0.18)" strokeWidth="1" />
-                <circle cx="132" cy="50" r="11" fill="none" stroke="rgba(245,158,11,0.18)" strokeWidth="1" />
+                <circle className="field-dot" cx="48" cy="47" r="12" fill="none" stroke="rgba(232,0,29,0.18)" strokeWidth="1" />
+                <circle className="field-dot" cx="98" cy="41" r="10" fill="none" stroke="rgba(59,130,246,0.18)" strokeWidth="1" />
+                <circle className="field-dot" cx="132" cy="50" r="11" fill="none" stroke="rgba(245,158,11,0.18)" strokeWidth="1" />
+                <circle r="2.6" fill="#E8001D" opacity="0.92">
+                  <animateMotion dur="6.4s" repeatCount="indefinite" path="M26,70 C44,30 70,20 92,34 C108,44 122,48 146,28" />
+                </circle>
+                <circle r="2.2" fill="#3b82f6" opacity="0.72">
+                  <animateMotion dur="7.6s" repeatCount="indefinite" path="M24,58 C42,46 70,52 90,42 C112,30 132,48 154,42" />
+                </circle>
               </svg>
             </div>
             <div style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "12px" }}>
@@ -417,7 +1154,7 @@ export default function F1ReplayLanding() {
         </div>
 
         <div style={{ padding: "40px 28px" }}>
-          <div style={{ marginBottom: "24px" }}>
+          <div className="feature-list" style={{ marginBottom: "24px" }}>
             {[
               "Driver & constructor standings",
               "Race calendar with session breakdown",
@@ -431,10 +1168,10 @@ export default function F1ReplayLanding() {
               </div>
             ))}
           </div>
-          <div style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px" }}>
+          <div className="snapshot-card reveal-up" style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px", animationDelay: "420ms" }}>
             <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "8px" }}>STANDINGS SNAPSHOT</div>
-            <div style={{ fontSize: "13px", fontFamily: "'Instrument Serif', serif", marginBottom: "4px", color: "#E0E0DA" }}>2025 Championship Pulse</div>
-            <div style={{ fontSize: "11px", color: "#555" }}>drivers . constructors . movement</div>
+            <div style={{ fontSize: "13px", fontFamily: "'Instrument Serif', serif", marginBottom: "4px", color: "#E0E0DA" }}>Selected Season Pulse</div>
+            <div style={{ fontSize: "11px", color: "#555" }}>drivers . constructors . movement by season</div>
             <div style={{ margin: "10px 0", height: "1px", background: "#161618" }} />
             <div style={{ display: "flex", gap: "6px" }}>
               {["P1 VER", "P2 NOR", "P3 PIA"].map((d) => (
@@ -446,8 +1183,8 @@ export default function F1ReplayLanding() {
       </section>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "320px" }}>
-        <div style={{
-          background: "#0C0C0D", position: "relative", overflow: "hidden",
+        <div className="banner-copy" style={{
+          background: "radial-gradient(circle at 66% 46%, rgba(232,0,29,0.075), transparent 30%), linear-gradient(120deg, #0C0C0D 0%, #120B0D 52%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
           display: "flex", flexDirection: "column", justifyContent: "space-between",
           padding: "28px", borderRight: "1px solid #161618",
         }}>
@@ -455,53 +1192,111 @@ export default function F1ReplayLanding() {
             <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "4px" }}>TELEMETRY DECODED</div>
             <div style={{ fontSize: "10px", color: "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>ALL SEASONS . ALL CIRCUITS</div>
           </div>
-          <div style={{ position: "absolute", inset: 0, display: "flex", gap: "22px", padding: "0 28px", alignItems: "center", opacity: 0.03, pointerEvents: "none" }}>
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} style={{ width: "1px", background: "#fff", height: "65%" }} />
-            ))}
-          </div>
-          <h2 style={{
-            fontFamily: "'Instrument Serif', serif", fontWeight: 400,
-            fontSize: "clamp(22px, 3.2vw, 40px)", color: "#E0E0DA",
-            lineHeight: 1.1, letterSpacing: "-0.02em",
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
           }}>
-            Don't Watch It.
-            <br />Don't Guess It.
-            <br />Just Replay It.
-          </h2>
+            <div style={{
+              position: "relative",
+              width: "74%",
+              maxWidth: "420px",
+              minHeight: "214px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-start",
+            }}>
+              <div className="replay-stripe-field" style={{
+                position: "absolute",
+                inset: "12% 6% 12% 34%",
+                display: "flex",
+                gap: "18px",
+                alignItems: "stretch",
+                justifyContent: "flex-start",
+                opacity: 0.16,
+                maskImage: "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.88) 18%, rgba(0,0,0,0.88) 82%, transparent 100%)",
+              }}>
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="stripe-line"
+                    style={{
+                      width: i === 3 ? "2px" : "1px",
+                      background: i === 3 ? "linear-gradient(180deg, rgba(232,0,29,0) 0%, rgba(232,0,29,0.3) 18%, rgba(232,0,29,0.34) 50%, rgba(232,0,29,0.3) 82%, rgba(232,0,29,0) 100%)" : "linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.10) 20%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.10) 80%, rgba(255,255,255,0) 100%)",
+                      height: "100%",
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{
+                position: "absolute",
+                inset: "14% 4% 14% 0",
+                background: "linear-gradient(90deg, rgba(12,12,13,0.96) 0%, rgba(12,12,13,0.78) 46%, rgba(12,12,13,0.12) 100%)",
+                filter: "blur(12px)",
+              }} />
+              <h2 style={{
+                fontFamily: "'Instrument Serif', serif", fontWeight: 400,
+                fontSize: "clamp(22px, 3.2vw, 40px)", color: "#E0E0DA",
+                lineHeight: 1.1, letterSpacing: "-0.02em", position: "relative", zIndex: 1, textAlign: "left",
+                textWrap: "balance",
+                width: "100%",
+                maxWidth: "320px",
+              }}>
+                Don't Watch It.
+                <br />Don't Guess It.
+                <br />Just Replay It.
+              </h2>
+            </div>
+          </div>
         </div>
 
-        <div style={{
-          background: "#0E0E0F", position: "relative",
+        <div className="banner-meta" style={{
+          background: "radial-gradient(circle at 50% 42%, rgba(232,0,29,0.04), transparent 30%), linear-gradient(180deg, #0E0E0F 0%, #0A0A0B 100%)", position: "relative",
           display: "flex", flexDirection: "column", justifyContent: "space-between",
           padding: "28px",
         }}>
-          <div style={{ position: "absolute", top: "18px", right: "22px", textAlign: "right" }}>
+          <div className="reveal-up" style={{ position: "absolute", top: "18px", right: "22px", textAlign: "right", animationDelay: "220ms" }}>
             <div style={{ fontSize: "11px", color: "#444", fontFamily: "'DM Mono', monospace" }}>Kalman-smoothed</div>
             <div style={{ fontSize: "11px", color: "#444", fontFamily: "'DM Mono', monospace" }}>telemetry</div>
           </div>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg viewBox="0 0 220 160" width="220" height="160">
-              <circle cx="78" cy="88" r="48" fill="#161618" stroke="#1e1e20" strokeWidth="1" />
-              <ellipse cx="78" cy="88" rx="64" ry="16" fill="none" stroke="#2a2a2a" strokeWidth="1.5" opacity="0.6" />
-              <circle cx="78" cy="88" r="8" fill="#E8001D" opacity="0.8" />
-              <rect x="132" y="62" width="68" height="40" rx="3" fill="#111113" stroke="#1e1e20" strokeWidth="1" transform="skewY(-8) translate(0,8)" />
-              <line x1="140" y1="72" x2="192" y2="72" stroke="#2a2a2a" strokeWidth="0.8" transform="skewY(-8) translate(0,8)" />
-              <line x1="140" y1="80" x2="180" y2="80" stroke="#1e1e1e" strokeWidth="0.8" transform="skewY(-8) translate(0,8)" />
+          <div className="soft-float" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg className="kalman-visual" viewBox="0 0 220 160" width="220" height="160">
+              <circle className="state-halo" cx="78" cy="88" r="48" fill="#161618" stroke="#1e1e20" strokeWidth="1" />
+              <ellipse className="state-ring" cx="78" cy="88" rx="64" ry="16" fill="none" stroke="#2a2a2a" strokeWidth="1.5" opacity="0.6" />
+              <circle className="state-core" cx="78" cy="88" r="8" fill="#E8001D" opacity="0.8" />
+              <circle r="3" fill="#E8001D" opacity="0.9">
+                <animateMotion dur="6.8s" repeatCount="indefinite" path="M14,88 A64,16 0 1,1 142,88 A64,16 0 1,1 14,88" />
+              </circle>
+              <g transform="skewY(-8) translate(0,8)">
+                <rect className="state-panel" x="132" y="62" width="68" height="40" rx="3" fill="#111113" stroke="#1e1e20" strokeWidth="1" />
+                <line className="panel-line" x1="140" y1="72" x2="192" y2="72" stroke="#2a2a2a" strokeWidth="0.8" />
+                <line className="panel-line" x1="140" y1="80" x2="180" y2="80" stroke="#1e1e1e" strokeWidth="0.8" />
+                <circle r="2.6" fill="#E8001D" opacity="0.72">
+                  <animate attributeName="cx" values="140;192;140" dur="3.2s" repeatCount="indefinite" />
+                  <animate attributeName="cy" values="72;72;72" dur="3.2s" repeatCount="indefinite" />
+                </circle>
+              </g>
+              <circle r="2.2" fill="#E8001D" opacity="0.4">
+                <animate attributeName="cx" values="140;180;140" dur="5.4s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="80;80;80" dur="5.4s" repeatCount="indefinite" />
+              </circle>
             </svg>
           </div>
-          <div style={{ fontSize: "12px", color: "#555" }}>
+          <div className="banner-note" style={{ fontSize: "12px", color: "#555" }}>
             6-state constant-acceleration Kalman model - frame-accurate position at every point
           </div>
         </div>
       </div>
 
-      <section style={{ padding: "48px 32px", background: "#0A0A0B" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+      <section className="reveal-up" style={{ padding: "48px 32px", background: "#0A0A0B", animationDelay: "260ms" }}>
+        <div className="gallery-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
           <h2 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(22px, 2.5vw, 30px)", color: "#E0E0DA" }}>
             Championship standings
           </h2>
-          <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+          <div className="gallery-tabs" style={{ display: "flex", gap: "24px", alignItems: "center" }}>
             {GALLERY_TABS.map((t) => (
               <button key={t} className={`gallery-tab${activeGallery === t ? " active" : ""}`}
                 onClick={() => setActiveGallery(t)}>{t}</button>
@@ -509,17 +1304,17 @@ export default function F1ReplayLanding() {
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px" }}>
-          {SESSIONS.map((s) => <SessionCard key={s.id} session={s} />)}
+          {SESSIONS.map((s) => <SessionCard key={s.id} session={s} motionStyle={motionStyle} />)}
         </div>
       </section>
 
-      <section style={{
-        background: "#0C0C0D", padding: "72px 32px",
+      <section className="surface-glow" style={{
+        background: "radial-gradient(circle at 76% 50%, rgba(232,0,29,0.032), transparent 32%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)", padding: "72px 32px",
         display: "grid", gridTemplateColumns: "1fr auto 1fr",
         alignItems: "center", gap: "40px",
         borderTop: "1px solid #161618",
       }}>
-        <div>
+        <div className="cta-copy">
           <div style={{ display: "flex", gap: "8px", marginBottom: "22px" }}>
             <span className="pill">Replay</span>
             <span className="pill">Standings</span>
@@ -539,22 +1334,56 @@ export default function F1ReplayLanding() {
           </p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div className="cta-center" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div style={{ width: "1px", height: "48px", background: "#1e1e20", marginBottom: "16px" }} />
           <button className="cta-btn-red">{"Open Dashboard ->"}</button>
           <div style={{ width: "1px", height: "48px", background: "#1e1e20", marginTop: "16px" }} />
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <svg viewBox="0 0 180 180" width="180" height="180">
+          <svg className="cta-orbit" viewBox="0 0 180 180" width="180" height="180">
             <circle cx="90" cy="90" r="72" fill="#0f0f0f" stroke="#1a1a1a" strokeWidth="1" />
-            {[0, 1, 2, 3].map((i) => (
-              <ellipse key={i} cx="90" cy="90" rx={28 + i * 14} ry="7"
-                fill="none" stroke="rgba(232,0,29,0.15)" strokeWidth="1"
-                transform={`rotate(${-35 + i * 18} 90 90)`} />
-            ))}
-            <circle cx="90" cy="90" r="6" fill="#E8001D" />
-            <circle cx="90" cy="90" r="12" fill="none" stroke="#E8001D" strokeWidth="1" opacity="0.4" />
+            <g className="electron-cloud cloud-a">
+              <ellipse cx="90" cy="90" rx="52" ry="24" fill="rgba(232,0,29,0.05)" transform="rotate(-28 90 90)" />
+              <ellipse cx="90" cy="90" rx="34" ry="62" fill="rgba(232,0,29,0.035)" transform="rotate(18 90 90)" />
+            </g>
+            <g className="electron-cloud cloud-b">
+              <ellipse cx="90" cy="90" rx="64" ry="18" fill="rgba(245,158,11,0.04)" transform="rotate(42 90 90)" />
+              <ellipse cx="90" cy="90" rx="20" ry="70" fill="rgba(255,255,255,0.025)" transform="rotate(-12 90 90)" />
+            </g>
+            <g className="electron-cloud cloud-c">
+              <ellipse cx="90" cy="90" rx="26" ry="72" fill="rgba(232,0,29,0.03)" transform="rotate(62 90 90)" />
+              <ellipse cx="90" cy="90" rx="70" ry="20" fill="rgba(255,255,255,0.02)" transform="rotate(-44 90 90)" />
+            </g>
+            <g className="quantum-shell shell-a">
+              <ellipse cx="90" cy="90" rx="30" ry="10" fill="none" stroke="rgba(232,0,29,0.22)" strokeWidth="1.1" transform="rotate(-26 90 90)" />
+            </g>
+            <g className="quantum-shell shell-b">
+              <ellipse cx="90" cy="90" rx="46" ry="12" fill="none" stroke="rgba(232,0,29,0.18)" strokeWidth="1" transform="rotate(22 90 90)" />
+            </g>
+            <g className="quantum-shell shell-c">
+              <ellipse cx="90" cy="90" rx="62" ry="14" fill="none" stroke="rgba(232,0,29,0.14)" strokeWidth="1" transform="rotate(68 90 90)" />
+            </g>
+            <g className="quantum-shell shell-d">
+              <ellipse cx="90" cy="90" rx="54" ry="18" fill="none" stroke="rgba(232,0,29,0.12)" strokeWidth="0.9" transform="rotate(-58 90 90)" />
+            </g>
+            <g className="quantum-shell shell-e">
+              <ellipse cx="90" cy="90" rx="38" ry="22" fill="none" stroke="rgba(232,0,29,0.1)" strokeWidth="0.9" transform="rotate(54 90 90)" />
+            </g>
+            <g className="quantum-shell shell-f">
+              <ellipse cx="90" cy="90" rx="66" ry="9" fill="none" stroke="rgba(232,0,29,0.11)" strokeWidth="0.85" transform="rotate(8 90 90)" />
+            </g>
+            <circle className="quantum-electron" r="3.4" fill="#E8001D" opacity="0.95">
+              <animateMotion dur="10.5s" repeatCount="indefinite" path="M120,90 A30,10 0 1,1 60,90 A30,10 0 1,1 120,90" rotate="auto" />
+            </circle>
+            <circle className="quantum-electron" r="2.4" fill="#F3F4F6" opacity="0.75">
+              <animateMotion dur="14.2s" repeatCount="indefinite" path="M136,90 A46,12 0 1,0 44,90 A46,12 0 1,0 136,90" rotate="auto" />
+            </circle>
+            <circle className="quantum-electron" r="2.1" fill="#E8001D" opacity="0.58">
+              <animateMotion dur="18.8s" repeatCount="indefinite" path="M152,90 A62,14 0 1,1 28,90 A62,14 0 1,1 152,90" rotate="auto" />
+            </circle>
+            <circle className="orbit-core" cx="90" cy="90" r="6" fill="#E8001D" />
+            <circle className="orbit-core" cx="90" cy="90" r="12" fill="none" stroke="#E8001D" strokeWidth="1" opacity="0.4" />
             <circle cx="90" cy="90" r="72" fill="none" stroke="rgba(232,0,29,0.12)" strokeWidth="1" />
           </svg>
         </div>
@@ -565,22 +1394,22 @@ export default function F1ReplayLanding() {
         padding: "28px 32px",
         display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
-        <div>
+        <div className="footer-copy">
           <div style={{ fontSize: "12px", color: "#444", fontFamily: "'DM Mono', monospace", marginBottom: "3px" }}>
             A Race Intelligence Tool by Lumen
           </div>
           <div style={{ fontSize: "11px", color: "#333", fontFamily: "'DM Mono', monospace" }}>
-            (c) 2025 - All rights reserved.
+            Lumen - All rights reserved.
           </div>
         </div>
-        <div style={{ display: "flex", gap: "28px" }}>
+        <div className="footer-links" style={{ display: "flex", gap: "28px" }}>
           {["-> Standings", "-> Calendar", "-> Sessions", "-> Replay"].map((l) => (
             <button key={l} className="nav-link" style={{ fontSize: "11px", color: "#444", letterSpacing: "0.03em" }}>{l}</button>
           ))}
         </div>
       </footer>
 
-      <div style={{ background: "#0A0A0B", textAlign: "center", padding: "0 0 16px", overflow: "hidden" }}>
+      <div className="watermark" style={{ background: "#0A0A0B", textAlign: "center", padding: "0 0 16px", overflow: "hidden" }}>
         <div style={{
           fontFamily: "'Instrument Serif', serif", fontWeight: 400,
           fontSize: "clamp(48px, 16vw, 160px)",
@@ -590,6 +1419,7 @@ export default function F1ReplayLanding() {
           Lumen
         </div>
       </div>
-    </>
+      </div>
+    </div>
   );
 }
