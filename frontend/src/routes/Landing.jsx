@@ -496,7 +496,7 @@ export default function Landing() {
             stroke-dashoffset: 0;
           }
           to {
-            stroke-dashoffset: -48;
+            stroke-dashoffset: calc(-1 * var(--trace-cycle, 30));
           }
         }
 
@@ -729,18 +729,41 @@ export default function Landing() {
         }
 
         [data-motion-ready="true"] .telemetry-graph .telemetry-line {
+          --trace-cycle: 30;
           stroke-dasharray: 18 12;
+          stroke-dashoffset: 0;
           animation: traceFlow 2.6s linear infinite;
         }
 
         [data-motion-ready="true"] .telemetry-graph .telemetry-line.telemetry-secondary {
+          --trace-cycle: 26;
           stroke-dasharray: 12 14;
           animation-duration: 3.8s;
         }
 
         [data-motion-ready="true"] .telemetry-graph .telemetry-line.telemetry-tertiary {
+          --trace-cycle: 28;
           stroke-dasharray: 10 18;
           animation-duration: 5.2s;
+        }
+
+        [data-motion-ready="true"] .telemetry-graph .telemetry-flow {
+          --trace-cycle: 56;
+          stroke-dasharray: 10 46;
+          stroke-dashoffset: 0;
+          animation: traceFlow 1.8s linear infinite;
+        }
+
+        [data-motion-ready="true"] .telemetry-graph .telemetry-flow.telemetry-secondary {
+          --trace-cycle: 64;
+          stroke-dasharray: 8 56;
+          animation-duration: 2.8s;
+        }
+
+        [data-motion-ready="true"] .telemetry-graph .telemetry-flow.telemetry-tertiary {
+          --trace-cycle: 72;
+          stroke-dasharray: 8 64;
+          animation-duration: 3.6s;
         }
 
         [data-motion-ready="true"] .card-signal-panel {
@@ -755,20 +778,38 @@ export default function Landing() {
           animation: premiumSignalGlow 11.6s ease-in-out infinite;
         }
 
-        [data-motion-ready="true"] .replay-hex-stack .hex-layer {
+        [data-motion-ready="true"] .replay-hex-stack .hex-shell,
+        [data-motion-ready="true"] .replay-hex-stack .hex-cloud {
           transform-box: fill-box;
           transform-origin: center;
           animation: replayHexPulse 7s ease-in-out infinite;
         }
 
         [data-motion-ready="true"] .replay-hex-stack {
-          filter: drop-shadow(0 0 12px rgba(232,0,29,0.12));
+          filter: drop-shadow(0 0 18px rgba(232,0,29,0.2));
         }
 
-        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-1 { animation-delay: 180ms; }
-        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-2 { animation-delay: 360ms; }
-        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-3 { animation-delay: 540ms; }
-        [data-motion-ready="true"] .replay-hex-stack .hex-layer.hex-4 { animation-delay: 720ms; }
+        [data-motion-ready="true"] .replay-hex-stack .hex-cloud {
+          animation-duration: 9.4s;
+          opacity: 1;
+        }
+
+        [data-motion-ready="true"] .replay-hex-stack .hex-cloud.cloud-b {
+          animation-duration: 11.2s;
+          animation-direction: reverse;
+        }
+
+        [data-motion-ready="true"] .replay-hex-stack .hex-shell.shell-b { animation-delay: 220ms; }
+        [data-motion-ready="true"] .replay-hex-stack .hex-shell.shell-c { animation-delay: 440ms; }
+
+        [data-motion-ready="true"] .replay-hex-stack .hex-beam {
+          stroke-dasharray: 10 14;
+          animation: traceFlow 4.8s linear infinite;
+        }
+
+        [data-motion-ready="true"] .replay-hex-stack .hex-core {
+          animation: orbitPulse 5.6s ease-in-out infinite;
+        }
 
         [data-motion-ready="true"] .kalman-visual .state-halo,
         [data-motion-ready="true"] .kalman-visual .state-ring {
@@ -1040,10 +1081,24 @@ export default function Landing() {
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                    shapeRendering="geometricPrecision"
+                  />
+                  <polyline
+                    className={`telemetry-flow ${lineClass}`}
+                    points={points}
+                    fill="none"
+                    stroke={i === 0 ? "#FF5A6E" : i === 1 ? "#A4A4AB" : "#6A6A72"}
+                    strokeWidth={i === 0 ? "2.4" : "2"}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={i === 0 ? "0.95" : i === 1 ? "0.72" : "0.5"}
+                    vectorEffect="non-scaling-stroke"
+                    shapeRendering="geometricPrecision"
                   />
                   {i < 2 ? (
                     <circle r={i === 0 ? "3.2" : "2.6"} fill={i === 0 ? "#E8001D" : "#74747A"} opacity={i === 0 ? "0.95" : "0.55"}>
-                      <animateMotion dur={i === 0 ? "2.8s" : "4.2s"} repeatCount="indefinite" path={path} />
+                      <animateMotion dur={i === 0 ? "2.8s" : "4.2s"} repeatCount="indefinite" calcMode="linear" path={path} />
                     </circle>
                   ) : null}
                 </svg>
@@ -1066,18 +1121,48 @@ export default function Landing() {
           </div>
           <div className="soft-float" style={{ position: "absolute", top: "40px", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
             <svg className="replay-hex-stack" viewBox="0 0 180 150" width="180" height="150" style={{ opacity: 0.7 }}>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <polygon key={i}
-                  className={`hex-layer hex-${i}`}
-                  points="90,12 158,52 158,102 90,142 22,102 22,52"
-                  fill={i === 2 ? "rgba(232,0,29,0.10)" : "none"}
-                  stroke={`rgba(232,0,29,${0.16 + i * 0.09})`}
-                  strokeWidth={i === 2 ? "1.4" : "1.2"}
-                  transform={`translate(${(i - 2) * 7},${(i - 2) * 5})`}
-                />
-              ))}
+              <defs>
+                <linearGradient id="replayPrismGlow" x1="34" y1="22" x2="148" y2="116" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#FF9AA5" stopOpacity="0.18" />
+                  <stop offset="46%" stopColor="#E8001D" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#E8001D" stopOpacity="0.08" />
+                </linearGradient>
+                <radialGradient id="replayHexCloudA" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#FF4D67" stopOpacity="0.26" />
+                  <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
+                </radialGradient>
+                <radialGradient id="replayHexCloudB" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#FF6B7E" stopOpacity="0.16" />
+                  <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <g className="hex-cloud cloud-a">
+                <ellipse cx="90" cy="76" rx="68" ry="24" fill="url(#replayHexCloudA)" transform="rotate(-18 90 76)" />
+                <ellipse cx="90" cy="76" rx="34" ry="72" fill="url(#replayHexCloudB)" transform="rotate(24 90 76)" />
+              </g>
+              <g className="hex-cloud cloud-b">
+                <ellipse cx="90" cy="76" rx="76" ry="20" fill="rgba(232,0,29,0.08)" transform="rotate(34 90 76)" />
+                <ellipse cx="90" cy="76" rx="24" ry="78" fill="rgba(255,77,103,0.07)" transform="rotate(-28 90 76)" />
+              </g>
+              <g className="hex-shell shell-a">
+                <path d="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 Z" fill="none" stroke="rgba(232,0,29,0.34)" strokeWidth="1.3" />
+              </g>
+              <g className="hex-shell shell-b" transform="rotate(18 90 76)">
+                <path d="M90,26 L130,48 L130,104 L90,126 L50,104 L50,48 Z" fill="none" stroke="rgba(232,0,29,0.28)" strokeWidth="1.15" />
+              </g>
+              <g className="hex-shell shell-c" transform="rotate(-26 90 76)">
+                <path d="M90,32 L154,56 L154,96 L90,120 L26,96 L26,56 Z" fill="none" stroke="rgba(232,0,29,0.2)" strokeWidth="1.05" />
+              </g>
+              <path className="hex-beam" d="M90,18 L118,40 L130,48 L154,56" fill="none" stroke="rgba(232,0,29,0.3)" strokeWidth="1" />
+              <path className="hex-beam" d="M36,104 L62,98 L90,134 L122,110" fill="none" stroke="rgba(232,0,29,0.22)" strokeWidth="0.95" />
+              <polygon points="90,46 118,62 118,92 90,108 62,92 62,62" fill="url(#replayPrismGlow)" opacity="0.88" />
+              <circle className="hex-core" cx="90" cy="76" r="7" fill="#FF3049" opacity="0.98" />
+              <circle className="hex-core" cx="90" cy="76" r="16" fill="none" stroke="#FF5A6E" strokeWidth="1.15" opacity="0.48" />
               <circle r="3.4" fill="#E8001D" opacity="1">
-                <animateMotion dur="8s" repeatCount="indefinite" path="M90,12 L158,52 L158,102 L90,142 L22,102 L22,52 Z" />
+                <animateMotion dur="8.4s" repeatCount="indefinite" path="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 L90,18 L130,48 L130,104 L90,126 L50,104 L50,48 L90,26 L154,56 L154,96 L90,120 L26,96 L26,56 L90,32" />
+              </circle>
+              <circle r="7.2" fill="rgba(232,0,29,0.08)" opacity="0.9">
+                <animateMotion dur="8.4s" repeatCount="indefinite" path="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 L90,18 L130,48 L130,104 L90,126 L50,104 L50,48 L90,26 L154,56 L154,96 L90,120 L26,96 L26,56 L90,32" />
               </circle>
             </svg>
           </div>
@@ -1097,7 +1182,7 @@ export default function Landing() {
       <section className="surface-glow" style={{
         display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
         borderTop: "1px solid #161618", borderBottom: "1px solid #161618",
-        background: "radial-gradient(120% 140% at 62% 100%, rgba(232,0,29,0.075) 0%, rgba(232,0,29,0.03) 30%, rgba(232,0,29,0) 62%), linear-gradient(180deg, #0B0B0C 0%, #0A0A0B 55%, #09090A 100%)",
+        background: "radial-gradient(110% 120% at 0% 100%, rgba(232,0,29,0.11) 0%, rgba(232,0,29,0.045) 18%, rgba(232,0,29,0.01) 30%, rgba(232,0,29,0) 42%), linear-gradient(180deg, #0B0B0C 0%, #0A0A0B 55%, #09090A 100%)",
       }}>
         <div className="feature-copy" style={{ padding: "40px 32px", borderRight: "1px solid #161618" }}>
           <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em", marginBottom: "18px" }}>Lumen</div>
@@ -1413,7 +1498,7 @@ export default function Landing() {
         <div style={{
           fontFamily: "'Instrument Serif', serif", fontWeight: 400,
           fontSize: "clamp(48px, 16vw, 160px)",
-          color: "#0e0e0f", letterSpacing: "-0.03em",
+          color: "#121212", letterSpacing: "-0.03em",
           lineHeight: 1, userSelect: "none",
         }}>
           Lumen

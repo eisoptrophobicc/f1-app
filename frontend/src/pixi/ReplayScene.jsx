@@ -299,11 +299,11 @@ export default function ReplayScene({ dnfMode, dsqMode }) {
         const deltaSec = (now - lastFrameTime) / 1000;
         lastFrameTime = now;
 
-        if (isPlayingRef.current) {
-          let newProgress = progressRef.current + (deltaSec * speedRef.current / totalTime);
-          if (newProgress > 1) newProgress = 0;
-          progressRef.current = newProgress;
-          setProgress(newProgress);
+        if (isPlayingRef.current && totalTime > 0) {
+          const loopedProgress =
+            (progressRef.current + (deltaSec * speedRef.current / totalTime)) % 1;
+          progressRef.current = loopedProgress;
+          setProgress(loopedProgress);
         }
 
         const elapsed = globalRaceStart + (progressRef.current * totalTime);
