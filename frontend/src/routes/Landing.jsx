@@ -1147,10 +1147,13 @@ export default function Landing() {
               <circle className="hex-core" cx="90" cy="76" r="7" fill="#FF3049" opacity="0.98" />
               <circle className="hex-core" cx="90" cy="76" r="16" fill="none" stroke="#FF5A6E" strokeWidth="1.15" opacity="0.48" />
               <circle r="3.4" fill="#E8001D" opacity="1">
-                <animateMotion dur="8.4s" repeatCount="indefinite" path="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 L90,18 L130,48 L130,104 L90,126 L50,104 L50,48 L90,26 L154,56 L154,96 L90,120 L26,96 L26,56 L90,32" />
+                <animateMotion dur="8.4s" repeatCount="indefinite" calcMode="linear" path="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 Z" />
               </circle>
-              <circle r="7.2" fill="rgba(232,0,29,0.08)" opacity="0.9">
-                <animateMotion dur="8.4s" repeatCount="indefinite" path="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 L90,18 L130,48 L130,104 L90,126 L50,104 L50,48 L90,26 L154,56 L154,96 L90,120 L26,96 L26,56 L90,32" />
+              <circle r="3.4" fill="#E8001D" opacity="0.9">
+                <animateMotion dur="6.8s" repeatCount="indefinite" calcMode="linear" path="M90,26 L130,48 L130,104 L90,126 L50,104 L50,48 Z" />
+              </circle>
+              <circle r="3.4" fill="#E8001D" opacity="0.75">
+                <animateMotion dur="9.6s" repeatCount="indefinite" calcMode="linear" path="M90,32 L154,56 L154,96 L90,120 L26,96 L26,56 Z" />
               </circle>
             </svg>
           </div>
@@ -1226,30 +1229,31 @@ export default function Landing() {
           </div>
         </div>
 
-        <div style={{ padding: "40px 28px" }}>
-          <div className="feature-list" style={{ marginBottom: "24px" }}>
-            {[
-              "Driver & constructor standings",
-              "Race calendar with session breakdown",
-              "Animated telemetry replay via PIXI.js",
-            ].map((item, i) => (
-              <div key={i} className="checklist-item">
-                <div style={{ width: "13px", height: "13px", borderRadius: "50%", border: "1.5px solid #E8001D", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#E8001D" }} />
+        <div style={{ padding: "40px 28px", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 20% 100%, rgba(232,0,29,0.18) 0%, rgba(232,0,29,0.08) 18%, rgba(232,0,29,0.03) 32%, transparent 60%)", filter: "blur(40px)", zIndex: 0 }} />
+
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div className="feature-list" style={{ marginBottom: "24px" }}>
+              {["Driver & constructor standings", "Race calendar with session breakdown", "Animated telemetry replay via PIXI.js"].map((item, i) => (
+                <div key={i} className="checklist-item">
+                  <div style={{ width: "13px", height: "13px", borderRadius: "50%", border: "1.5px solid #E8001D", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#E8001D" }} />
+                  </div>
+                  <span>{item}</span>
                 </div>
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-          <div className="snapshot-card reveal-up" style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px", animationDelay: "420ms" }}>
-            <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "8px" }}>STANDINGS SNAPSHOT</div>
-            <div style={{ fontSize: "13px", fontFamily: "'Instrument Serif', serif", marginBottom: "4px", color: "#E0E0DA" }}>Selected Season Pulse</div>
-            <div style={{ fontSize: "11px", color: "#555" }}>drivers . constructors . movement by season</div>
-            <div style={{ margin: "10px 0", height: "1px", background: "#161618" }} />
-            <div style={{ display: "flex", gap: "6px" }}>
-              {["P1 VER", "P2 NOR", "P3 PIA"].map((d) => (
-                <span key={d} style={{ background: "#0E0E0F", border: "1px solid #1e1e20", borderRadius: "4px", padding: "2px 8px", fontSize: "10px", fontFamily: "'DM Mono', monospace", color: "#555" }}>{d}</span>
               ))}
+            </div>
+
+            <div className="snapshot-card reveal-up" style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px", animationDelay: "420ms" }}>
+              <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "8px" }}>STANDINGS SNAPSHOT</div>
+              <div style={{ fontSize: "13px", fontFamily: "'Instrument Serif', serif", marginBottom: "4px", color: "#E0E0DA" }}>Selected Season Pulse</div>
+              <div style={{ fontSize: "11px", color: "#555" }}>drivers . constructors . movement by season</div>
+              <div style={{ margin: "10px 0", height: "1px", background: "#161618" }} />
+              <div style={{ display: "flex", gap: "6px" }}>
+                {["P1 VER", "P2 NOR", "P3 PIA"].map((d) => (
+                  <span key={d} style={{ background: "#0E0E0F", border: "1px solid #1e1e20", borderRadius: "4px", padding: "2px 8px", fontSize: "10px", fontFamily: "'DM Mono', monospace", color: "#555" }}>{d}</span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1257,7 +1261,7 @@ export default function Landing() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "320px" }}>
         <div className="banner-copy" style={{
-          background: "radial-gradient(circle at 66% 46%, rgba(232,0,29,0.075), transparent 30%), linear-gradient(120deg, #0C0C0D 0%, #120B0D 52%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
+          background: "radial-gradient(60% 80% at 75% 55%, rgba(232,0,29,0.08), rgba(232,0,29,0.03) 30%, transparent 60%), linear-gradient(120deg, #0C0C0D 0%, #120B0D 52%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
           display: "flex", flexDirection: "column", justifyContent: "space-between",
           padding: "28px", borderRight: "1px solid #161618",
         }}>
@@ -1304,12 +1308,13 @@ export default function Landing() {
                   />
                 ))}
               </div>
-            <div style={{
-              position: "absolute",
-              inset: "14% 4% 14% 0",
-              background: "linear-gradient(90deg, rgba(12,12,13,0.94) 0%, rgba(12,12,13,0.72) 42%, rgba(52,5,11,0.18) 78%, rgba(82,8,18,0.12) 100%)",
-              filter: "blur(12px)",
-            }} />
+            <div
+              style={{
+                position: "absolute",
+                inset: "14% 4% 14% 0",
+                background: "radial-gradient(80% 100% at 70% 60%, rgba(52,5,11,0.25), rgba(52,5,11,0.12) 40%, transparent 70%)",
+                filter: "blur(20px)",
+              }} />
               <h2 style={{
                 fontFamily: "'Instrument Serif', serif", fontWeight: 400,
                 fontSize: "clamp(22px, 3.2vw, 40px)", color: "#E0E0DA",
@@ -1327,7 +1332,7 @@ export default function Landing() {
         </div>
 
         <div className="banner-meta" style={{
-          background: "radial-gradient(circle at 50% 42%, rgba(232,0,29,0.04), transparent 30%), linear-gradient(180deg, #0E0E0F 0%, #0A0A0B 100%)", position: "relative",
+          background: "radial-gradient(circle at 50% 42%, rgba(232,0,29,0.1), transparent 30%), linear-gradient(180deg, #0E0E0F 0%, #0A0A0B 100%)", position: "relative",
           display: "flex", flexDirection: "column", justifyContent: "space-between",
           padding: "28px",
         }}>
