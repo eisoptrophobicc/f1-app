@@ -1,458 +1,595 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-const NAV_LINKS = ["Standings", "Calendar", "Sessions", "Replay"];
+const NAV_LEFT = ["Standings", "Calendar"];
+const GALLERY_TABS = ["Overview", "Drivers", "Constructors", "Momentum"];
+const FILTER_TABS = ["Replay", "Standings", "Calendar", "Sessions"];
 
-const FEATURES = [
+const SESSIONS = [
   {
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <path d="M3 3v18h18" /><path d="M7 16l4-4 4 4 4-6" />
-      </svg>
-    ),
-    title: "Standings & Results",
-    body: "Driver and constructor standings for any season, with nationality, team, and points — defaulting to the latest completed race.",
+    id: 1,
+    sub: "Drivers Leader",
+    label: "Max Verstappen",
+    badge: "P1",
+    value: "331",
+    unit: "pts",
+    stats: [
+      ["Wins", "9"],
+      ["Podiums", "14"],
+      ["Gap", "+44"],
+      ["Team", "RBR"],
+    ],
   },
   {
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-      </svg>
-    ),
-    title: "Calendar & Sessions",
-    body: "Full race calendar with testing weekends, session breakdowns, status, and top-3 fastest laps per session.",
+    id: 2,
+    sub: "Constructors P1",
+    label: "McLaren",
+    badge: "P1",
+    value: "568",
+    unit: "pts",
+    stats: [
+      ["Wins", "11"],
+      ["Podiums", "22"],
+      ["Lead", "+36"],
+      ["Lineup", "NOR / PIA"],
+    ],
   },
   {
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-      </svg>
-    ),
-    title: "Telemetry Replay",
-    body: "Animated track replay powered by PIXI.js — throttle, brake, speed, and gear channels for any driver, any race.",
+    id: 3,
+    sub: "Momentum Watch",
+    label: "Lando Norris",
+    badge: "+18",
+    value: "287",
+    unit: "pts",
+    stats: [
+      ["Last 5", "102"],
+      ["Wins", "4"],
+      ["Average", "20.4"],
+      ["Trend", "Up"],
+    ],
+  },
+  {
+    id: 4,
+    sub: "Gap Projection",
+    label: "Ferrari",
+    badge: "P2",
+    value: "532",
+    unit: "pts",
+    stats: [
+      ["Gap", "-36"],
+      ["Wins", "5"],
+      ["Podiums", "17"],
+      ["Trend", "Stable"],
+    ],
+  },
+  {
+    id: 5,
+    sub: "Drivers P2",
+    label: "Oscar Piastri",
+    badge: "P2",
+    value: "287",
+    unit: "pts",
+    stats: [
+      ["Wins", "4"],
+      ["Podiums", "10"],
+      ["Poles", "3"],
+      ["Team", "MCL"],
+    ],
+  },
+  {
+    id: 6,
+    sub: "Constructor Form",
+    label: "Mercedes",
+    badge: "P3",
+    value: "418",
+    unit: "pts",
+    stats: [
+      ["Last 3", "54"],
+      ["Podiums", "9"],
+      ["Gap", "-114"],
+      ["Trend", "Rising"],
+    ],
   },
 ];
 
-function TelemetryBar({ label, value, color, delay }) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setWidth(value), 600 + delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between items-center">
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.08em" }} className="text-neutral-500 uppercase">
-          {label}
-        </span>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }} className="text-neutral-300">
-          {value}%
-        </span>
-      </div>
-      <div className="h-px bg-neutral-800 relative overflow-hidden rounded-full">
-        <div
-          className="absolute left-0 top-0 h-full rounded-full transition-all duration-1000 ease-out"
-          style={{ width: `${width}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function SpeedGlyph() {
+function SessionCard({ session }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <div
-      className="absolute right-8 top-1/2 -translate-y-1/2 opacity-[0.06] pointer-events-none select-none"
-      style={{ fontFamily: "'Playfair Display', serif", fontSize: "28vw", fontWeight: 900, color: "#fff", lineHeight: 1 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? "#161618" : "#111113",
+        aspectRatio: "1 / 1",
+        position: "relative",
+        overflow: "hidden",
+        cursor: "pointer",
+        transition: "background 0.2s",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: "20px",
+        border: "1px solid #1e1e20",
+      }}
     >
-      L
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "22px" }}>
+        <div>
+          <div style={{ fontSize: "10px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", marginBottom: "8px" }}>{session.sub}</div>
+          <div style={{ fontSize: "13px", fontWeight: 400, color: "#C8C8C2", fontFamily: "'Instrument Serif', serif", marginBottom: "14px" }}>{session.label}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+            <span style={{ fontSize: "36px", lineHeight: 1, color: "#E8E8E2", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.04em" }}>{session.value}</span>
+            <span style={{ fontSize: "11px", color: "#666", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>{session.unit}</span>
+          </div>
+        </div>
+        <div style={{
+          minWidth: "48px",
+          height: "48px",
+          borderRadius: "12px",
+          border: "1px solid #2a2a2d",
+          background: hovered ? "#1B1B1E" : "#141416",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#E8001D",
+          fontFamily: "'DM Mono', monospace",
+          fontSize: "12px",
+          letterSpacing: "0.08em",
+        }}>
+          {session.badge}
+        </div>
+      </div>
+      <div style={{
+        marginTop: "auto",
+        display: "grid",
+        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        gap: "10px",
+      }}>
+        {session.stats.map(([key, val]) => (
+          <div key={key} style={{
+            background: "#0D0D0F",
+            border: "1px solid #1A1A1D",
+            padding: "10px 12px",
+            minHeight: "58px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}>
+            <span style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>{key}</span>
+            <span style={{ fontSize: "15px", color: "#E0E0DA", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.02em" }}>{val}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-export default function Landing() {
-  const heroRef = useRef(null);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+export default function F1ReplayLanding() {
+  const [activeFilter, setActiveFilter] = useState("Replay");
+  const [activeGallery, setActiveGallery] = useState("Overview");
 
   return (
-    <div style={{ background: "#0A0A0B", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#E8E8E2" }}>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap"
-        rel="stylesheet"
-      />
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=DM+Mono:wght@300;400;500&display=swap');
 
-      {/* NAV */}
-      <header
-        className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-        style={{
-          borderBottom: scrolled ? "1px solid rgba(255,255,255,0.06)" : "1px solid transparent",
-          backdropFilter: scrolled ? "blur(12px)" : "none",
-          background: scrolled ? "rgba(10,10,11,0.85)" : "transparent",
-        }}
-      >
-        <nav className="max-w-6xl mx-auto px-8 h-16 flex items-center justify-between">
-          <div className="flex gap-8 flex-1">
-            {NAV_LINKS.slice(0, 2).map((l) => (
-              <a
-                key={l}
-                href="#"
-                style={{ fontSize: 13, letterSpacing: "0.04em", fontFamily: "'DM Mono', monospace" }}
-                className="text-neutral-500 hover:text-neutral-200 transition-colors"
-              >
-                {l}
-              </a>
-            ))}
-          </div>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body { background: #0A0A0B; color: #888; font-family: 'Geist', sans-serif; -webkit-font-smoothing: antialiased; }
 
-          <div className="flex flex-col items-center" style={{ gap: 2 }}>
-            <span
-              style={{
-                fontFamily: "'Playfair Display', serif",
-                fontSize: 20,
-                fontWeight: 700,
-                letterSpacing: "-0.03em",
-                color: "#E8E8E2",
-                lineHeight: 1,
-              }}
-            >
-              Lumen
-            </span>
-            <span
-              style={{
-                fontSize: 8,
-                fontFamily: "'DM Mono', monospace",
-                color: "#444",
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-              }}
-            >
-              Formula One Analytics
-            </span>
-          </div>
+        .nav-link {
+          background: none; border: none; cursor: pointer;
+          font-family: 'Geist', sans-serif; font-size: 12px;
+          color: #555; letter-spacing: 0.01em; padding: 0;
+          transition: color 0.15s;
+        }
+        .nav-link:hover { color: #C8C8C2; }
 
-          <div className="flex items-center gap-6 flex-1 justify-end">
-            {NAV_LINKS.slice(2).map((l) => (
-              <a
-                key={l}
-                href="#"
-                style={{ fontSize: 13, letterSpacing: "0.04em", fontFamily: "'DM Mono', monospace" }}
-                className="text-neutral-500 hover:text-neutral-200 transition-colors"
-              >
-                {l}
-              </a>
-            ))}
-            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
-            <button
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: 12,
-                letterSpacing: "0.06em",
-                color: "#E8E8E2",
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 100,
-                padding: "7px 18px",
-                cursor: "pointer",
-                transition: "background 0.2s, border-color 0.2s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
-            >
-              Sign In
-            </button>
-          </div>
-        </nav>
-      </header>
+        .filter-tab {
+          background: none; border: none; cursor: pointer;
+          font-family: 'Geist', sans-serif; font-size: 12px;
+          color: #555; padding: 0; transition: color 0.15s;
+        }
+        .filter-tab.active { color: #E0E0DA; font-weight: 500; }
+        .filter-tab:hover { color: #C8C8C2; }
 
-      {/* HERO */}
-      <section ref={heroRef} className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-6">
-        <SpeedGlyph />
+        .cta-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #E0E0DA; color: #0A0A0B; border: none;
+          padding: 10px 18px;
+          font-family: 'Geist', sans-serif; font-size: 12px; font-weight: 500;
+          cursor: pointer; transition: background 0.2s; white-space: nowrap;
+        }
+        .cta-btn:hover { background: #fff; }
 
-        {/* top accent line */}
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 h-px"
-          style={{ width: "1px", height: "30vh", background: "linear-gradient(to bottom, transparent, rgba(224,0,29,0.4), transparent)" }}
-        />
+        .cta-btn-ghost {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: transparent; color: #C8C8C2;
+          border: 1px solid rgba(255,255,255,0.15);
+          padding: 9px 16px;
+          font-family: 'Geist', sans-serif; font-size: 11px; font-weight: 500;
+          cursor: pointer; transition: border-color 0.2s, color 0.2s;
+        }
+        .cta-btn-ghost:hover { border-color: rgba(255,255,255,0.4); color: #E0E0DA; }
 
-        {/* eyebrow */}
-        <div className="flex items-center gap-3 mb-10 animate-fade-in">
-          <div className="h-px w-8" style={{ background: "#E8001D" }} />
-          <span
-            style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.18em", color: "#E8001D" }}
-            className="uppercase"
-          >
-            All Seasons · All Circuits
-          </span>
-          <div className="h-px w-8" style={{ background: "#E8001D" }} />
+        .cta-btn-red {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #E8001D; color: #fff; border: none;
+          padding: 12px 28px; border-radius: 3px;
+          font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 500;
+          cursor: pointer; transition: background 0.2s;
+        }
+        .cta-btn-red:hover { background: #c4001a; }
+
+        .gallery-tab {
+          background: none; border: none; cursor: pointer;
+          font-family: 'Geist', sans-serif; font-size: 12px;
+          color: #555; padding: 0; transition: color 0.15s;
+        }
+        .gallery-tab.active { color: #E0E0DA; font-weight: 500; }
+        .gallery-tab:hover { color: #C8C8C2; }
+
+        .checklist-item {
+          display: flex; align-items: center; gap: 10px;
+          font-size: 12px; color: #666;
+          padding: 7px 0; border-bottom: 1px solid #161618;
+        }
+        .checklist-item:last-child { border-bottom: none; }
+
+        .pill {
+          display: inline-block;
+          border: 1px solid #2a2a2a;
+          border-radius: 999px;
+          padding: 3px 12px;
+          font-size: 11px;
+          color: #555;
+          font-family: 'DM Mono', monospace;
+        }
+      `}</style>
+
+      <nav style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 32px", height: "48px",
+        borderBottom: "1px solid #161618",
+        position: "sticky", top: 0, background: "#0A0A0B", zIndex: 100,
+      }}>
+        <div style={{ display: "flex", gap: "28px", flex: 1 }}>
+          {NAV_LEFT.map((l) => <button key={l} className="nav-link">{"-> "}{l}</button>)}
         </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+          <span style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "16px", letterSpacing: "-0.01em", lineHeight: 1, color: "#E0E0DA" }}>Lumen</span>
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", color: "#333", textTransform: "uppercase" }}>Formula One Analytics</span>
+        </div>
+        <div style={{ display: "flex", gap: "28px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
+          <button className="nav-link">Sessions</button>
+          <button className="cta-btn" style={{ padding: "7px 16px", fontSize: "11px" }}>{"Sign In ->"}</button>
+        </div>
+      </nav>
 
-        {/* headline */}
-        <h1
-          className="text-center leading-none mb-6 max-w-4xl"
-          style={{
-            fontFamily: "'Playfair Display', serif",
-            fontWeight: 900,
-            fontSize: "clamp(3.2rem, 9vw, 8rem)",
-            letterSpacing: "-0.03em",
-            color: "#F0F0EA",
-          }}
-        >
-          Lumen
-          <br />
-          <em style={{ fontStyle: "italic", color: "#AAAAAA" }}>for Formula One</em>
+      <section style={{
+        padding: "48px 32px 40px",
+        display: "grid", gridTemplateColumns: "1fr 300px",
+        gap: "40px", alignItems: "start",
+        borderBottom: "1px solid #161618",
+      }}>
+        <h1 style={{
+          fontFamily: "'Instrument Serif', serif", fontWeight: 400,
+          fontSize: "clamp(36px, 5vw, 60px)", lineHeight: 1.06,
+          letterSpacing: "-0.02em", color: "#E8E8E2", maxWidth: "600px",
+        }}>
+          Standings, Calendars, and Telemetry Replay - Every Season, Every Circuit
         </h1>
-
-        {/* subheading */}
-        <p
-          className="text-center max-w-md mb-12"
-          style={{ fontSize: "clamp(0.95rem, 2vw, 1.1rem)", color: "#6B6B65", lineHeight: 1.75, fontWeight: 300 }}
-        >
-          Standings, calendars, session data, and animated telemetry replays — every season, every circuit, in one place.
-        </p>
-
-        {/* CTAs */}
-        <div className="flex items-center gap-4 flex-wrap justify-center">
-          <button
-            style={{
-              background: "#E8001D",
-              color: "#fff",
-              border: "none",
-              borderRadius: 100,
-              padding: "14px 32px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 500,
-              fontSize: 15,
-              letterSpacing: "0.01em",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              transition: "transform 0.15s, box-shadow 0.15s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.03)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-          >
-            Open Dashboard
-            <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
-              <circle cx="8" cy="8" r="7" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
-              <polygon points="6,5 11,8 6,11" fill="white" />
-            </svg>
-          </button>
-
-          <button
-            style={{
-              background: "transparent",
-              color: "#888882",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 100,
-              padding: "14px 28px",
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 400,
-              fontSize: 15,
-              cursor: "pointer",
-              transition: "border-color 0.2s, color 0.2s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "#E8E8E2"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#888882"; }}
-          >
-            View Sample Replay
-          </button>
-        </div>
-
-        {/* telemetry card */}
-        <div
-          className="mt-24 w-full max-w-2xl mx-auto relative"
-          style={{
-            background: "#111113",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 20,
-            padding: "28px 32px",
-          }}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.14em", color: "#555" }} className="uppercase mb-1">
-                Replay Telemetry · HAM vs VER
-              </p>
-              <p style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 20, color: "#E0E0DA" }}>
-                Lap 47 · Sector 2
-              </p>
-            </div>
-            <div
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 100,
-                padding: "6px 14px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <svg viewBox="0 0 12 12" width="10" height="10" fill="none">
-                <path d="M9.5 6A3.5 3.5 0 1 1 6 2.5" stroke="#888" strokeWidth="1.2" strokeLinecap="round"/>
-                <path d="M6 1v2.5L7.5 2" stroke="#888" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#666", letterSpacing: "0.1em" }}>REPLAY</span>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <TelemetryBar label="Throttle — HAM" value={87} color="#E8001D" delay={0} />
-            <TelemetryBar label="Throttle — VER" value={92} color="#1E90FF" delay={100} />
-            <TelemetryBar label="Brake — HAM" value={14} color="#E8001D" delay={200} />
-            <TelemetryBar label="Brake — VER" value={8} color="#1E90FF" delay={300} />
-          </div>
-
-          <div className="mt-6 pt-5 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-            {[["Speed", "318 km/h"], ["Gear", "7th"], ["Gap", "+0.342s"], ["DRS", "Open"]].map(([k, v]) => (
-              <div key={k} className="text-center">
-                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#555", letterSpacing: "0.1em" }} className="uppercase mb-1">
-                  {k}
-                </p>
-                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 15, color: "#E0E0DA", fontWeight: 500 }}>{v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* scroll hint */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-30">
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#fff" }}>SCROLL</span>
-          <div style={{ width: 1, height: 40, background: "linear-gradient(to bottom, #fff, transparent)" }} />
+        <div style={{ paddingTop: "6px" }}>
+          <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.75, marginBottom: "22px" }}>
+            Driver standings, race calendars, session overviews, and animated telemetry replay - all in one place, powered by FastF1.
+          </p>
+          <button className="cta-btn">{"Open Dashboard ->"}</button>
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section className="max-w-6xl mx-auto px-8 py-32">
-        <div className="mb-20 max-w-xl">
-          <p
-            style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.18em", color: "#E8001D" }}
-            className="uppercase mb-4"
-          >
-            Core Systems
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 32px", height: "40px",
+        borderBottom: "1px solid #161618", background: "#0A0A0B",
+      }}>
+        <div style={{ display: "flex", gap: "28px" }}>
+          {FILTER_TABS.map((t) => (
+            <button key={t} className={`filter-tab${activeFilter === t ? " active" : ""}`}
+              onClick={() => setActiveFilter(t)}>{t}</button>
+          ))}
+        </div>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "#333", letterSpacing: "0.1em" }}>ALL SEASONS . ALL CIRCUITS</span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "360px" }}>
+        <div style={{
+          background: "#0C0C0D", position: "relative", overflow: "hidden",
+          display: "flex", flexDirection: "column", justifyContent: "space-between",
+          padding: "28px", borderRight: "1px solid #161618",
+        }}>
+          <div style={{ fontSize: "11px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em" }}>
+            Telemetry Overlay . Driver Comparison
+          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "stretch", padding: "60px 28px", gap: "20px", opacity: 0.04 }}>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} style={{ width: "1px", background: "#fff", flex: "none" }} />
+            ))}
+          </div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "2px" }}>
+            {[
+              { color: "#E8001D", pts: [35, 12, 28, 8, 22, 40, 18, 32, 10] },
+              { color: "#2a2a2a", pts: [45, 28, 40, 22, 35, 52, 28, 44, 24] },
+              { color: "#1a1a1a", pts: [55, 40, 50, 35, 48, 62, 40, 55, 36] },
+            ].map((t, i) => (
+              <svg key={i} viewBox="0 0 400 50" preserveAspectRatio="none" style={{ width: "100%", height: "38px" }}>
+                <polyline points={t.pts.map((y, x) => `${x * 50},${y}`).join(" ")}
+                  fill="none" stroke={t.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ))}
+          </div>
+          <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>
+            SPEED . THROTTLE . BRAKE . DRS
+          </div>
+        </div>
+
+        <div style={{
+          background: "#0E0E0F", position: "relative", overflow: "hidden",
+          display: "flex", flexDirection: "column", justifyContent: "space-between",
+          padding: "28px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <span style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>PIXI.js Renderer</span>
+          </div>
+          <div style={{ position: "absolute", top: "40px", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
+            <svg viewBox="0 0 180 150" width="180" height="150" style={{ opacity: 0.7 }}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <polygon key={i}
+                  points="90,12 158,52 158,102 90,142 22,102 22,52"
+                  fill={i === 2 ? "rgba(232,0,29,0.04)" : "none"}
+                  stroke={`rgba(232,0,29,${0.04 + i * 0.04})`}
+                  strokeWidth="1"
+                  transform={`translate(${(i - 2) * 7},${(i - 2) * 5})`}
+                />
+              ))}
+            </svg>
+          </div>
+          <div>
+            <h2 style={{
+              fontFamily: "'Instrument Serif', serif", fontWeight: 400,
+              fontSize: "clamp(24px, 3vw, 38px)", color: "#E0E0DA",
+              lineHeight: 1.12, marginBottom: "18px",
+            }}>
+              Replay any session with a single command
+            </h2>
+            <button className="cta-btn-ghost">{"Try Now ->"}</button>
+          </div>
+        </div>
+      </div>
+
+      <section style={{
+        display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+        borderTop: "1px solid #161618", borderBottom: "1px solid #161618",
+      }}>
+        <div style={{ padding: "40px 32px", borderRight: "1px solid #161618" }}>
+          <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em", marginBottom: "18px" }}>Lumen</div>
+          <h2 style={{
+            fontFamily: "'Instrument Serif', serif", fontWeight: 400,
+            fontSize: "clamp(20px, 2.2vw, 28px)", lineHeight: 1.2,
+            marginBottom: "16px", color: "#E0E0DA",
+          }}>
+            Every screen engineered for precision analysis
+          </h2>
+          <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.75, marginBottom: "28px" }}>
+            From driver and constructor standings to session-level telemetry replay - Lumen surfaces the data that matters, every season.
           </p>
-          <h2
-            style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(2rem, 4vw, 3rem)", letterSpacing: "-0.02em", lineHeight: 1.15 }}
-          >
-            Every function engineered
-            <br />
-            <em style={{ color: "#666660", fontStyle: "italic" }}>for precision.</em>
+          <button className="cta-btn">{"Open Dashboard ->"}</button>
+        </div>
+
+        <div style={{
+          padding: "32px 24px", borderRight: "1px solid #161618",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "#0C0C0D",
+        }}>
+          <div style={{ width: "100%", maxWidth: "220px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px" }}>
+              <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "10px" }}>FIELD SHAPE - LIVE MODEL</div>
+              <svg viewBox="0 0 180 100" style={{ width: "100%" }}>
+                <path d="M26,70 C44,30 70,20 92,34 C108,44 122,48 146,28" fill="none" stroke="#222" strokeWidth="7" strokeLinecap="round" />
+                <path d="M24,58 C42,46 70,52 90,42 C112,30 132,48 154,42" fill="none" stroke="#1a1a1a" strokeWidth="5" strokeLinecap="round" />
+                <path d="M30,78 C48,60 64,66 84,58 C110,48 132,66 150,56" fill="none" stroke="#202022" strokeWidth="3" strokeLinecap="round" />
+                {[{ x: 48, y: 47, c: "#E8001D" }, { x: 98, y: 41, c: "#3b82f6" }, { x: 132, y: 50, c: "#f59e0b" }].map((dot, i) => (
+                  <circle key={i} cx={dot.x} cy={dot.y} r="4" fill={dot.c} />
+                ))}
+                <circle cx="48" cy="47" r="12" fill="none" stroke="rgba(232,0,29,0.18)" strokeWidth="1" />
+                <circle cx="98" cy="41" r="10" fill="none" stroke="rgba(59,130,246,0.18)" strokeWidth="1" />
+                <circle cx="132" cy="50" r="11" fill="none" stroke="rgba(245,158,11,0.18)" strokeWidth="1" />
+              </svg>
+            </div>
+            <div style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>PACE INDEX</div>
+                <div style={{ width: "22px", height: "22px", background: "#E8001D", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ color: "#fff", fontSize: "8px" }}>▶</span>
+                </div>
+              </div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "20px", color: "#E0E0DA", letterSpacing: "-0.01em" }}>91.4</div>
+              <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", marginTop: "2px" }}>composite ranking signal . live</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "40px 28px" }}>
+          <div style={{ marginBottom: "24px" }}>
+            {[
+              "Driver & constructor standings",
+              "Race calendar with session breakdown",
+              "Animated telemetry replay via PIXI.js",
+            ].map((item, i) => (
+              <div key={i} className="checklist-item">
+                <div style={{ width: "13px", height: "13px", borderRadius: "50%", border: "1.5px solid #E8001D", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#E8001D" }} />
+                </div>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px" }}>
+            <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "8px" }}>STANDINGS SNAPSHOT</div>
+            <div style={{ fontSize: "13px", fontFamily: "'Instrument Serif', serif", marginBottom: "4px", color: "#E0E0DA" }}>2025 Championship Pulse</div>
+            <div style={{ fontSize: "11px", color: "#555" }}>drivers . constructors . movement</div>
+            <div style={{ margin: "10px 0", height: "1px", background: "#161618" }} />
+            <div style={{ display: "flex", gap: "6px" }}>
+              {["P1 VER", "P2 NOR", "P3 PIA"].map((d) => (
+                <span key={d} style={{ background: "#0E0E0F", border: "1px solid #1e1e20", borderRadius: "4px", padding: "2px 8px", fontSize: "10px", fontFamily: "'DM Mono', monospace", color: "#555" }}>{d}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "320px" }}>
+        <div style={{
+          background: "#0C0C0D", position: "relative", overflow: "hidden",
+          display: "flex", flexDirection: "column", justifyContent: "space-between",
+          padding: "28px", borderRight: "1px solid #161618",
+        }}>
+          <div>
+            <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "4px" }}>TELEMETRY DECODED</div>
+            <div style={{ fontSize: "10px", color: "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>ALL SEASONS . ALL CIRCUITS</div>
+          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", gap: "22px", padding: "0 28px", alignItems: "center", opacity: 0.03, pointerEvents: "none" }}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} style={{ width: "1px", background: "#fff", height: "65%" }} />
+            ))}
+          </div>
+          <h2 style={{
+            fontFamily: "'Instrument Serif', serif", fontWeight: 400,
+            fontSize: "clamp(22px, 3.2vw, 40px)", color: "#E0E0DA",
+            lineHeight: 1.1, letterSpacing: "-0.02em",
+          }}>
+            Don't Watch It.
+            <br />Don't Guess It.
+            <br />Just Replay It.
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {FEATURES.map((f, i) => (
-            <div
-              key={i}
-              style={{
-                background: "#111113",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 16,
-                padding: "32px 28px",
-                transition: "border-color 0.2s, background 0.2s",
-                cursor: "default",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "rgba(232,0,29,0.2)";
-                e.currentTarget.style.background = "#14100F";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                e.currentTarget.style.background = "#111113";
-              }}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "rgba(232,0,29,0.1)",
-                  border: "1px solid rgba(232,0,29,0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#E8001D",
-                  marginBottom: 24,
-                }}
-              >
-                {f.icon}
-              </div>
-              <h3
-                style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 20, color: "#E8E8E2", marginBottom: 12, lineHeight: 1.2 }}
-              >
-                {f.title}
-              </h3>
-              <p style={{ fontSize: 14, color: "#555550", lineHeight: 1.8, fontWeight: 300 }}>{f.body}</p>
-            </div>
+        <div style={{
+          background: "#0E0E0F", position: "relative",
+          display: "flex", flexDirection: "column", justifyContent: "space-between",
+          padding: "28px",
+        }}>
+          <div style={{ position: "absolute", top: "18px", right: "22px", textAlign: "right" }}>
+            <div style={{ fontSize: "11px", color: "#444", fontFamily: "'DM Mono', monospace" }}>Kalman-smoothed</div>
+            <div style={{ fontSize: "11px", color: "#444", fontFamily: "'DM Mono', monospace" }}>telemetry</div>
+          </div>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg viewBox="0 0 220 160" width="220" height="160">
+              <circle cx="78" cy="88" r="48" fill="#161618" stroke="#1e1e20" strokeWidth="1" />
+              <ellipse cx="78" cy="88" rx="64" ry="16" fill="none" stroke="#2a2a2a" strokeWidth="1.5" opacity="0.6" />
+              <circle cx="78" cy="88" r="8" fill="#E8001D" opacity="0.8" />
+              <rect x="132" y="62" width="68" height="40" rx="3" fill="#111113" stroke="#1e1e20" strokeWidth="1" transform="skewY(-8) translate(0,8)" />
+              <line x1="140" y1="72" x2="192" y2="72" stroke="#2a2a2a" strokeWidth="0.8" transform="skewY(-8) translate(0,8)" />
+              <line x1="140" y1="80" x2="180" y2="80" stroke="#1e1e1e" strokeWidth="0.8" transform="skewY(-8) translate(0,8)" />
+            </svg>
+          </div>
+          <div style={{ fontSize: "12px", color: "#555" }}>
+            6-state constant-acceleration Kalman model - frame-accurate position at every point
+          </div>
+        </div>
+      </div>
+
+      <section style={{ padding: "48px 32px", background: "#0A0A0B" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(22px, 2.5vw, 30px)", color: "#E0E0DA" }}>
+            Championship standings
+          </h2>
+          <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+            {GALLERY_TABS.map((t) => (
+              <button key={t} className={`gallery-tab${activeGallery === t ? " active" : ""}`}
+                onClick={() => setActiveGallery(t)}>{t}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px" }}>
+          {SESSIONS.map((s) => <SessionCard key={s.id} session={s} />)}
+        </div>
+      </section>
+
+      <section style={{
+        background: "#0C0C0D", padding: "72px 32px",
+        display: "grid", gridTemplateColumns: "1fr auto 1fr",
+        alignItems: "center", gap: "40px",
+        borderTop: "1px solid #161618",
+      }}>
+        <div>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "22px" }}>
+            <span className="pill">Replay</span>
+            <span className="pill">Standings</span>
+            <span className="pill">Calendar</span>
+          </div>
+          <h2 style={{
+            fontFamily: "'Instrument Serif', serif", fontWeight: 400,
+            fontSize: "clamp(30px, 4.5vw, 56px)", color: "#E0E0DA",
+            lineHeight: 1.05, letterSpacing: "-0.025em",
+          }}>
+            One session -
+            <br />Infinite insights
+            <br /><em>/ Limitless replay.</em>
+          </h2>
+          <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.75, marginTop: "20px", maxWidth: "280px" }}>
+            Load any race weekend and watch every battle, strategy call, and braking point - frame by frame, every season.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ width: "1px", height: "48px", background: "#1e1e20", marginBottom: "16px" }} />
+          <button className="cta-btn-red">{"Open Dashboard ->"}</button>
+          <div style={{ width: "1px", height: "48px", background: "#1e1e20", marginTop: "16px" }} />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <svg viewBox="0 0 180 180" width="180" height="180">
+            <circle cx="90" cy="90" r="72" fill="#0f0f0f" stroke="#1a1a1a" strokeWidth="1" />
+            {[0, 1, 2, 3].map((i) => (
+              <ellipse key={i} cx="90" cy="90" rx={28 + i * 14} ry="7"
+                fill="none" stroke="rgba(232,0,29,0.15)" strokeWidth="1"
+                transform={`rotate(${-35 + i * 18} 90 90)`} />
+            ))}
+            <circle cx="90" cy="90" r="6" fill="#E8001D" />
+            <circle cx="90" cy="90" r="12" fill="none" stroke="#E8001D" strokeWidth="1" opacity="0.4" />
+            <circle cx="90" cy="90" r="72" fill="none" stroke="rgba(232,0,29,0.12)" strokeWidth="1" />
+          </svg>
+        </div>
+      </section>
+
+      <footer style={{
+        background: "#0A0A0B", borderTop: "1px solid #161618",
+        padding: "28px 32px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
+        <div>
+          <div style={{ fontSize: "12px", color: "#444", fontFamily: "'DM Mono', monospace", marginBottom: "3px" }}>
+            A Race Intelligence Tool by Lumen
+          </div>
+          <div style={{ fontSize: "11px", color: "#333", fontFamily: "'DM Mono', monospace" }}>
+            (c) 2025 - All rights reserved.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: "28px" }}>
+          {["-> Standings", "-> Calendar", "-> Sessions", "-> Replay"].map((l) => (
+            <button key={l} className="nav-link" style={{ fontSize: "11px", color: "#444", letterSpacing: "0.03em" }}>{l}</button>
           ))}
         </div>
-      </section>
-
-      {/* BOTTOM CTA BAND */}
-      <section
-        className="mx-8 mb-16 rounded-2xl overflow-hidden relative flex flex-col items-center justify-center py-24 px-6 text-center"
-        style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            background: "radial-gradient(ellipse 60% 80% at 50% 110%, rgba(232,0,29,0.35) 0%, transparent 70%)",
-            pointerEvents: "none",
-          }}
-        />
-        <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.18em", color: "#E8001D" }} className="uppercase mb-6">
-          Standings · Calendar · Telemetry
-        </p>
-        <h2
-          style={{ fontFamily: "'Playfair Display', serif", fontWeight: 900, fontSize: "clamp(2.4rem, 6vw, 5rem)", letterSpacing: "-0.03em", lineHeight: 1.05, marginBottom: 32 }}
-        >
-          Race data, beautifully
-          <br />
-          <em style={{ fontStyle: "italic", color: "#555" }}>reimagined.</em>
-        </h2>
-        <button
-          style={{
-            background: "#E8001D",
-            color: "#fff",
-            border: "none",
-            borderRadius: 100,
-            padding: "16px 40px",
-            fontFamily: "'DM Sans', sans-serif",
-            fontWeight: 500,
-            fontSize: 15,
-            cursor: "pointer",
-            letterSpacing: "0.01em",
-            position: "relative",
-            zIndex: 1,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.03)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-        >
-          Open Dashboard →
-        </button>
-      </section>
-
-      {/* FOOTER */}
-      <footer className="max-w-6xl mx-auto px-8 py-10 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div className="flex flex-col" style={{ gap: 2 }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 15, color: "#444" }}>Lumen</span>
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "#2A2A2A", letterSpacing: "0.18em" }}>FORMULA ONE ANALYTICS</span>
-        </div>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#2A2A2A", letterSpacing: "0.08em" }}>
-          © 2025 LUMEN
-        </span>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#333", letterSpacing: "0.06em" }}>
-          ALL CIRCUITS · ALL SEASONS
-        </span>
       </footer>
 
-      <style>{``}</style>
-    </div>
+      <div style={{ background: "#0A0A0B", textAlign: "center", padding: "0 0 16px", overflow: "hidden" }}>
+        <div style={{
+          fontFamily: "'Instrument Serif', serif", fontWeight: 400,
+          fontSize: "clamp(48px, 16vw, 160px)",
+          color: "#0e0e0f", letterSpacing: "-0.03em",
+          lineHeight: 1, userSelect: "none",
+        }}>
+          Lumen
+        </div>
+      </div>
+    </>
   );
 }
