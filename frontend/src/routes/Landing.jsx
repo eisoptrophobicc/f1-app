@@ -1,1502 +1,969 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback, useReducer } from "react";
 
-const NAV_LEFT = ["Standings", "Calendar"];
-const GALLERY_TABS = ["Overview", "Drivers", "Constructors", "Momentum"];
-const FILTER_TABS = ["Replay", "Standings", "Calendar", "Sessions"];
-
-const SESSIONS = [
-  {
-    id: 1,
-    sub: "Drivers Leader",
-    label: "Max Verstappen",
-    badge: "P1",
-    value: "331",
-    unit: "pts",
-    delta: "+44 gap",
-    spark: [30, 34, 38, 44, 42, 48, 54, 58],
-    stats: [
-      ["Wins", "9"],
-      ["Podiums", "14"],
-      ["Gap", "+44"],
-      ["Team", "RBR"],
-    ],
-  },
-  {
-    id: 2,
-    sub: "Constructors P1",
-    label: "McLaren",
-    badge: "P1",
-    value: "568",
-    unit: "pts",
-    delta: "+36 lead",
-    spark: [24, 30, 36, 39, 46, 52, 57, 64],
-    stats: [
-      ["Wins", "11"],
-      ["Podiums", "22"],
-      ["Lead", "+36"],
-      ["Lineup", "NOR / PIA"],
-    ],
-  },
-  {
-    id: 3,
-    sub: "Momentum Watch",
-    label: "Lando Norris",
-    badge: "+18",
-    value: "287",
-    unit: "pts",
-    delta: "last 5 up",
-    spark: [18, 21, 26, 24, 32, 36, 42, 47],
-    stats: [
-      ["Last 5", "102"],
-      ["Wins", "4"],
-      ["Average", "20.4"],
-      ["Trend", "Up"],
-    ],
-  },
-  {
-    id: 4,
-    sub: "Gap Projection",
-    label: "Ferrari",
-    badge: "P2",
-    value: "532",
-    unit: "pts",
-    delta: "closing",
-    spark: [28, 29, 31, 34, 38, 37, 41, 45],
-    stats: [
-      ["Gap", "-36"],
-      ["Wins", "5"],
-      ["Podiums", "17"],
-      ["Trend", "Stable"],
-    ],
-  },
-  {
-    id: 5,
-    sub: "Drivers P2",
-    label: "Oscar Piastri",
-    badge: "P2",
-    value: "287",
-    unit: "pts",
-    delta: "steady gain",
-    spark: [20, 22, 25, 29, 33, 35, 39, 43],
-    stats: [
-      ["Wins", "4"],
-      ["Podiums", "10"],
-      ["Poles", "3"],
-      ["Team", "MCL"],
-    ],
-  },
-  {
-    id: 6,
-    sub: "Constructor Form",
-    label: "Mercedes",
-    badge: "P3",
-    value: "418",
-    unit: "pts",
-    delta: "rising",
-    spark: [16, 18, 20, 24, 27, 31, 34, 39],
-    stats: [
-      ["Last 3", "54"],
-      ["Podiums", "9"],
-      ["Gap", "-114"],
-      ["Trend", "Rising"],
-    ],
-  },
+const TICKER_ITEMS = [
+  { category: "DRV", pos: "P1", label: "VER", value: "331", unit: "pts" },
+  { category: "DRV", pos: "P2", label: "NOR", value: "287", unit: "pts" },
+  { category: "DRV", pos: "P3", label: "PIA", value: "271", unit: "pts" },
+  { category: "CON", pos: "P1", label: "McLaren", value: "568", unit: "pts" },
+  { category: "CON", pos: "P2", label: "Red Bull", value: "532", unit: "pts" },
+  { category: "CON", pos: "P3", label: "Mercedes", value: "418", unit: "pts" },
+  { category: "RND", label: "Round 22", value: "Abu Dhabi GP" },
+  { category: "RND", label: "Next", value: "Bahrain · R1 2025" },
 ];
 
-function SessionCard({ session, motionStyle }) {
-  const [hovered, setHovered] = useState(false);
-  const sparkMin = Math.min(...session.spark);
-  const sparkMax = Math.max(...session.spark);
-  const sparkRange = Math.max(1, sparkMax - sparkMin);
-  const sparkPath = `M ${session.spark
-    .map((y, x) => {
-      const normalized = (y - sparkMin) / sparkRange;
-      const plottedY = 82 - normalized * 44;
-      return `${x * 31},${plottedY}`;
-    })
-    .join(" L ")}`;
+const TEASER_DRIVERS = [
+  { pos: "P1", name: "Max Verstappen", team: "Red Bull Racing", pts: 331, spark: [30, 34, 38, 44, 42, 48, 54, 58], gap: null },
+  { pos: "P2", name: "Lando Norris", team: "McLaren", pts: 287, spark: [18, 21, 26, 24, 32, 36, 42, 47], gap: "−44" },
+  { pos: "P3", name: "Oscar Piastri", team: "McLaren", pts: 271, spark: [20, 22, 25, 29, 33, 35, 39, 43], gap: "−60" },
+];
+
+const TEASER_CONSTRUCTORS = [
+  { pos: "P1", name: "McLaren",       base: "Woking, UK",      pts: 568, spark: [22, 28, 35, 40, 52, 61, 74, 88], gap: null },
+  { pos: "P2", name: "Red Bull",      base: "Milton Keynes",   pts: 532, spark: [40, 48, 55, 60, 58, 62, 66, 70], gap: "−36" },
+  { pos: "P3", name: "Mercedes",      base: "Brackley, UK",    pts: 418, spark: [30, 35, 38, 42, 44, 50, 55, 60], gap: "−150" },
+];
+
+const TEASER_RACES = [
+  { round: "R20", name: "Mexico City GP", circuit: "Hermanos Rodríguez", date: "27 Oct", status: "done", winner: "VER" },
+  { round: "R21", name: "São Paulo GP", circuit: "Interlagos", date: "03 Nov", status: "done", winner: "VER" },
+  { round: "R22", name: "Abu Dhabi GP", circuit: "Yas Marina", date: "08 Dec", status: "next", winner: null },
+];
+
+// ── Replay polyline points — single source of truth for both the drawn line and the dot ──
+const REPLAY_PTS = [
+  [0, 78], [31, 60], [62, 70], [93, 28], [124, 50], [155, 18], [186, 42], [217, 24], [248, 36],
+];
+
+// Given a 0–100 playhead progress, return {x, y} interpolated along REPLAY_PTS
+function replayDotPos(progress) {
+  const x = (progress / 100) * 248;
+  for (let i = 0; i < REPLAY_PTS.length - 1; i++) {
+    const [x0, y0] = REPLAY_PTS[i];
+    const [x1, y1] = REPLAY_PTS[i + 1];
+    if (x <= x1) {
+      const t = (x - x0) / (x1 - x0);
+      return { x, y: y0 + t * (y1 - y0) };
+    }
+  }
+  return { x: 248, y: REPLAY_PTS[REPLAY_PTS.length - 1][1] };
+}
+
+// ── useInView: fires once, stays true — reversing is jarring UX for this style ──
+function useInView(threshold = 0.15) {
+  const ref = useRef(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setInView(true); obs.disconnect(); }
+    }, { threshold });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return [ref, inView];
+}
+
+function useCountUp(target, active, duration = 1100, delay = 0) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setTimeout(() => {
+      let start = null;
+      const step = (ts) => {
+        if (!start) start = ts;
+        const p = Math.min((ts - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        setValue(Math.round(target * ease));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [active, target, duration, delay]);
+  return value;
+}
+
+// ── SparkLine: FIX — animateMotion path must be a closed-form absolute path
+//    matching the drawn polyline exactly. We pass the path string and ensure
+//    the animateMotion path starts at the FIRST data point, not (0,0).
+function SparkLine({ data, id, animated }) {
+  const W = 217, H = 40;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = Math.max(1, max - min);
+
+  // Build points array for reuse
+  const pts = data.map((y, x) => {
+    const ny = (y - min) / range;
+    return { x: x * (W / (data.length - 1)), y: H - ny * (H - 4) - 2 };
+  });
+
+  // SVG path string (absolute M + L commands)
+  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  // Area fill path
+  const areaPath = `${linePath} L ${W},${H} L 0,${H} Z`;
+  // animateMotion path — must be same absolute coords as linePath
+  const motionPath = linePath;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: "40px", display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id={`sg-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E8001D" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#sg-${id})`} />
+      <path d={linePath} fill="none" stroke="#E8001D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      {animated && (
+        <>
+          {/* Outer glow dot */}
+          <circle r="5" fill="rgba(232,0,29,0.12)">
+            <animateMotion
+              dur={`${4.5 + id * 0.5}s`}
+              repeatCount="indefinite"
+              calcMode="linear"
+              path={motionPath}
+            />
+          </circle>
+          {/* Inner solid dot */}
+          <circle r="2.4" fill="#E8001D">
+            <animateMotion
+              dur={`${4.5 + id * 0.5}s`}
+              repeatCount="indefinite"
+              calcMode="linear"
+              path={motionPath}
+            />
+          </circle>
+        </>
+      )}
+    </svg>
+  );
+}
+
+function DriverCard({ driver, index, active }) {
+  const pts = useCountUp(driver.pts, active, 1000, index * 100);
+  const [hov, setHov] = useState(false);
   return (
     <div
-      className="session-card reveal-up"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
-        "--card-delay": `${session.id * 90}ms`,
-        background: hovered ? "#161618" : "#111113",
-        aspectRatio: "1 / 1",
-        position: "relative",
-        overflow: "hidden",
-        cursor: "pointer",
-        transition: "background 0.2s",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
+        background: hov ? "#141416" : "#0F0F11",
+        border: `1px solid ${hov ? "#2a2a2d" : "#1a1a1c"}`,
         padding: "20px",
-        border: "1px solid #1e1e20",
-        ...motionStyle(session.id * 90),
+        opacity: active ? 1 : 0,
+        transform: active ? "translateY(0)" : "translateY(14px)",
+        transition: `opacity 0.55s cubic-bezier(0.22,1,0.36,1) ${index * 90}ms, transform 0.55s cubic-bezier(0.22,1,0.36,1) ${index * 90}ms, background 0.2s, border-color 0.2s`,
+        cursor: "pointer",
       }}
     >
-      <div className="session-card-head" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "22px" }}>
-        <div className="session-card-copy">
-          <div className="card-subline" style={{ fontSize: "10px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", marginBottom: "8px" }}>{session.sub}</div>
-          <div className="card-title" style={{ fontSize: "13px", fontWeight: 400, color: "#C8C8C2", fontFamily: "'Instrument Serif', serif", marginBottom: "14px" }}>{session.label}</div>
-          <div className="card-value-row" style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-            <span style={{ fontSize: "36px", lineHeight: 1, color: "#E8E8E2", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.04em" }}>{session.value}</span>
-            <span style={{ fontSize: "11px", color: "#666", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>{session.unit}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "7px" }}>
+            <span style={{ fontSize: "10px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>{driver.pos}</span>
+            <span style={{ width: "1px", height: "10px", background: "#222" }} />
+            <span style={{ fontSize: "9px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em" }}>{driver.team}</span>
           </div>
+          <div style={{ fontSize: "14px", color: "#C8C8C2", fontFamily: "'Instrument Serif', serif", fontWeight: 400 }}>{driver.name}</div>
         </div>
-        <div className="card-badge" style={{
-          minWidth: "48px",
-          height: "48px",
-          borderRadius: "12px",
-          border: "1px solid #2a2a2d",
-          background: hovered ? "#1B1B1E" : "#141416",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#E8001D",
-          fontFamily: "'DM Mono', monospace",
-          fontSize: "12px",
-          letterSpacing: "0.08em",
-        }}>
-          {session.badge}
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: "30px", color: "#E8E8E2", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{pts}</div>
+          <div style={{ fontSize: "8px", color: "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginTop: "2px" }}>PTS</div>
         </div>
       </div>
-      <div className="card-signal-panel" style={{
-        marginBottom: "16px",
+      <SparkLine data={driver.spark} id={index} animated={active} />
+      {driver.gap && (
+        <div style={{ marginTop: "8px", fontSize: "9px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em" }}>
+          {driver.gap} to leader
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConstructorCard({ constructor: c, index, active }) {
+  const pts = useCountUp(c.pts, active, 1000, index * 100);
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: hov ? "#141416" : "#0F0F11",
+        border: `1px solid ${hov ? "#2a2a2d" : "#1a1a1c"}`,
+        padding: "20px",
+        opacity: active ? 1 : 0,
+        transform: active ? "translateY(0)" : "translateY(14px)",
+        transition: `opacity 0.55s cubic-bezier(0.22,1,0.36,1) ${index * 90}ms, transform 0.55s cubic-bezier(0.22,1,0.36,1) ${index * 90}ms, background 0.2s, border-color 0.2s`,
+        cursor: "pointer",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "7px" }}>
+            <span style={{ fontSize: "10px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>{c.pos}</span>
+            <span style={{ width: "1px", height: "10px", background: "#222" }} />
+            <span style={{ fontSize: "9px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em" }}>{c.base}</span>
+          </div>
+          <div style={{ fontSize: "14px", color: "#C8C8C2", fontFamily: "'Instrument Serif', serif", fontWeight: 400 }}>{c.name}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: "30px", color: "#E8E8E2", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{pts}</div>
+          <div style={{ fontSize: "8px", color: "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginTop: "2px" }}>PTS</div>
+        </div>
+      </div>
+      <SparkLine data={c.spark} id={index + 10} animated={active} />
+      {c.gap && (
+        <div style={{ marginTop: "8px", fontSize: "9px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em" }}>
+          {c.gap} to leader
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Scroll-reveal wrapper — one-directional (no reverse) for clean UX ──
+function Reveal({ children, delay = 0, inView, direction = "up", style = {} }) {
+  const hidden =
+    direction === "left"  ? "translateX(-20px)" :
+    direction === "right" ? "translateX(20px)"  :
+                            "translateY(18px)";
+  return (
+    <div style={{
+      opacity: inView ? 1 : 0,
+      transform: inView ? "translate(0,0)" : hidden,
+      transition: `opacity 0.65s cubic-bezier(0.22,1,0.36,1) ${delay}ms, transform 0.65s cubic-bezier(0.22,1,0.36,1) ${delay}ms`,
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Auth Modal ──
+const AUTH_INITIAL = { tab: "login", form: { email: "", password: "", name: "" }, loading: false, done: false };
+
+function authReducer(state, action) {
+  switch (action.type) {
+    case "RESET":       return AUTH_INITIAL;
+    case "SET_TAB":     return { ...AUTH_INITIAL, tab: action.tab }; // switching tab resets everything else atomically
+    case "SET_FIELD":   return { ...state, form: { ...state.form, [action.field]: action.value } };
+    case "SUBMIT":      return { ...state, loading: true };
+    case "DONE":        return { ...state, loading: false, done: true };
+    default:            return state;
+  }
+}
+
+function AuthModal({ open, onClose }) {
+  const [state, dispatch] = useReducer(authReducer, AUTH_INITIAL);
+  const { tab, form, loading, done } = state;
+  const overlayRef = useRef(null);
+
+  // Reset every time the modal opens — single dispatch, no cascading setState
+  useEffect(() => {
+    if (open) dispatch({ type: "RESET" });
+  }, [open]);
+
+  // Close on overlay click
+  const handleOverlay = useCallback((e) => {
+    if (e.target === overlayRef.current) onClose();
+  }, [onClose]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const fn = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [open, onClose]);
+
+  const handleSubmit = () => {
+    if (!form.email || !form.password) return;
+    dispatch({ type: "SUBMIT" });
+    setTimeout(() => dispatch({ type: "DONE" }), 1400);
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      ref={overlayRef}
+      onClick={handleOverlay}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(0,0,0,0.72)",
+        backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        animation: "fadeIn 0.2s ease both",
+      }}
+    >
+      <div style={{
         background: "#0D0D0F",
-        border: "1px solid #1A1A1D",
-        padding: "12px 12px 12px",
-        minHeight: "148px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
+        border: "1px solid #1e1e22",
+        width: "100%", maxWidth: "380px",
+        position: "relative",
+        animation: "slideUp 0.28s cubic-bezier(0.22,1,0.36,1) both",
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-          <span style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>FORM SIGNAL</span>
-          <span style={{ fontSize: "9px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", display: "inline-flex", alignItems: "center", gap: "5px" }}>
-            <span style={{ fontSize: "11px", lineHeight: 1 }}>↗</span>
-            {session.delta}
-          </span>
-        </div>
-        <svg className="card-signal-graph" viewBox="0 0 220 104" preserveAspectRatio="none" style={{ width: "100%", height: "102px", display: "block", flex: 1 }}>
-          <line x1="0" y1="82" x2="220" y2="82" stroke="#161618" strokeWidth="1" />
-          <path
-            d={sparkPath}
-            fill="none"
-            stroke="#E8001D"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="card-signal-line"
-          />
-          <path
-            d={`${sparkPath} L 217,82 L 0,82 Z`}
-            fill={`url(#cardGlow-${session.id})`}
-            opacity="0.28"
-            className="card-signal-fill"
-          />
-          <path
-            d={sparkPath}
-            fill="none"
-            stroke="#FF4D67"
-            strokeWidth="2.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity="0.16"
-            className="card-signal-trace"
-          />
-          <g>
-            <circle r="6.4" fill="rgba(232,0,29,0.14)" filter={`url(#cardSignalGlow-${session.id})`}>
-              <animateMotion
-                dur={`${5.8 + session.id * 0.45}s`}
-                repeatCount="indefinite"
-                calcMode="linear"
-                keyTimes="0;1"
-                keyPoints="0;1"
-                path={sparkPath}
-              />
-            </circle>
-            <circle r="2.7" fill="#FF3B52">
-              <animateMotion
-                dur={`${5.8 + session.id * 0.45}s`}
-                repeatCount="indefinite"
-                calcMode="linear"
-                keyTimes="0;1"
-                keyPoints="0;1"
-                path={sparkPath}
-              />
-            </circle>
-          </g>
-          <defs>
-            <linearGradient id={`cardGlow-${session.id}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#E8001D" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
-            </linearGradient>
-            <filter id={`cardSignalGlow-${session.id}`} x="-120%" y="-120%" width="340%" height="340%">
-              <feGaussianBlur stdDeviation="2.4" />
-            </filter>
-          </defs>
-        </svg>
-      </div>
-      <div className="session-card-stats" style={{
-        marginTop: "0",
-        display: "grid",
-        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-        gap: "10px",
-      }}>
-        {session.stats.map(([key, val]) => (
-          <div key={key} className="stat-tile" style={{
-            background: "#0D0D0F",
-            border: "1px solid #1A1A1D",
-            padding: "10px 12px",
-            minHeight: "58px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-          }}>
-            <span style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>{key}</span>
-            <span style={{ fontSize: "15px", color: "#E0E0DA", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.02em" }}>{val}</span>
+        {/* Top accent line */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "1px", background: "linear-gradient(90deg, transparent, rgba(232,0,29,0.6), transparent)" }} />
+
+        {/* Header */}
+        <div style={{ padding: "28px 28px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: "20px", color: "#E0E0DA", fontWeight: 400, marginBottom: "4px" }}>
+              {tab === "login" ? "Welcome back" : "Create account"}
+            </div>
+            <div style={{ fontSize: "10px", color: "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em" }}>
+              LUMEN · FORMULA ONE ANALYTICS
+            </div>
           </div>
-        ))}
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#333", padding: "4px", transition: "color 0.15s", lineHeight: 1 }}
+            onMouseEnter={e => e.currentTarget.style.color = "#888"}
+            onMouseLeave={e => e.currentTarget.style.color = "#333"}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <line x1="13" y1="1" x2="1" y2="13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", margin: "24px 28px 0", borderBottom: "1px solid #161618" }}>
+          {[["login", "Sign In"], ["signup", "Sign Up"]].map(([t, label]) => (
+            <button
+              key={t}
+              onClick={() => dispatch({ type: "SET_TAB", tab: t })}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.1em",
+                color: tab === t ? "#E0E0DA" : "#2e2e2e",
+                padding: "0 0 10px", marginRight: "24px",
+                borderBottom: `1px solid ${tab === t ? "#E8001D" : "transparent"}`,
+                marginBottom: "-1px",
+                transition: "color 0.15s, border-color 0.15s",
+              }}
+            >
+              {label.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* Form */}
+        <div style={{ padding: "24px 28px 28px" }}>
+          {done ? (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ fontSize: "28px", marginBottom: "12px" }}>⚑</div>
+              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: "18px", color: "#E0E0DA", marginBottom: "8px" }}>
+                {tab === "login" ? "You're in." : "Account created."}
+              </div>
+              <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>
+                REDIRECTING TO DASHBOARD
+              </div>
+            </div>
+          ) : (
+            <>
+              {tab === "signup" && (
+                <AuthField
+                  label="FULL NAME"
+                  type="text"
+                  placeholder="Lewis Hamilton"
+                  value={form.name}
+                  onChange={v => dispatch({ type: "SET_FIELD", field: "name", value: v })}
+                />
+              )}
+              <AuthField
+                label="EMAIL"
+                type="email"
+                placeholder="driver@team.f1"
+                value={form.email}
+                onChange={v => dispatch({ type: "SET_FIELD", field: "email", value: v })}              />
+              <AuthField
+                label="PASSWORD"
+                type="password"
+                placeholder="••••••••"
+                value={form.password}
+                onChange={v => dispatch({ type: "SET_FIELD", field: "password", value: v })}                last
+              />
+
+              {tab === "login" && (
+                <div style={{ textAlign: "right", marginBottom: "20px" }}>
+                  <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: "9px", color: "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", transition: "color 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#666"}
+                    onMouseLeave={e => e.currentTarget.style.color = "#333"}
+                  >FORGOT PASSWORD</button>
+                </div>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                style={{
+                  width: "100%", border: "none", cursor: loading ? "default" : "pointer",
+                  background: loading ? "#5a000f" : "#E8001D",
+                  color: "#fff",
+                  padding: "12px 20px",
+                  fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.1em",
+                  transition: "background 0.2s, transform 0.15s",
+                  transform: "translateY(0)",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                }}
+                onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "#c4001a"; }}
+                onMouseLeave={e => { if (!loading) e.currentTarget.style.background = "#E8001D"; }}
+              >
+                {loading ? (
+                  <><LoadingDots /> {tab === "login" ? "SIGNING IN" : "CREATING ACCOUNT"}</>
+                ) : (
+                  tab === "login" ? "SIGN IN ->" : "CREATE ACCOUNT ->"
+                )}
+              </button>
+
+              <div style={{ marginTop: "20px", textAlign: "center", fontSize: "9px", color: "#1e1e1e", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em" }}>
+                {tab === "login" ? "DON'T HAVE AN ACCOUNT? " : "ALREADY HAVE AN ACCOUNT? "}
+                <button
+                  onClick={() => dispatch({ type: "SET_TAB", tab: tab === "login" ? "signup" : "login" })}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: "9px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", textDecoration: "underline", textUnderlineOffset: "2px" }}
+                >
+                  {tab === "login" ? "SIGN UP" : "SIGN IN"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-export default function Landing() {
-  const [activeFilter, setActiveFilter] = useState("Replay");
-  const [activeGallery, setActiveGallery] = useState("Overview");
-  const [animationsReady, setAnimationsReady] = useState(false);
+function AuthField({ label, type, placeholder, value, onChange, last = false }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{ marginBottom: last ? "20px" : "14px" }}>
+      <div style={{ fontSize: "8px", color: focused ? "#E8001D" : "#2e2e2e", fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", marginBottom: "6px", transition: "color 0.15s" }}>
+        {label}
+      </div>
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          width: "100%", background: "#0A0A0B",
+          border: `1px solid ${focused ? "#2a2a2e" : "#161618"}`,
+          color: "#C8C8C2", padding: "10px 12px",
+          fontFamily: "'DM Mono', monospace", fontSize: "12px",
+          outline: "none", transition: "border-color 0.15s",
+          boxSizing: "border-box",
+        }}
+      />
+    </div>
+  );
+}
 
+function LoadingDots() {
+  return (
+    <span style={{ display: "inline-flex", gap: "3px", alignItems: "center" }}>
+      {[0, 1, 2].map(i => (
+        <span key={i} style={{ width: "3px", height: "3px", background: "#fff", borderRadius: "50%", animation: `dotBounce 0.9s ease-in-out ${i * 0.15}s infinite` }} />
+      ))}
+    </span>
+  );
+}
+
+export default function Landing() {
+  const [animationsReady, setAnimationsReady] = useState(false);
+  const [scrolled, setScrolled]               = useState(false);
+  const [activeNav, setActiveNav]             = useState(null);
+  const [playhead, setPlayhead]               = useState(0);
+  const [authOpen, setAuthOpen]               = useState(false);
+  const [standingsView, setStandingsView]     = useState("driver"); // "driver" | "constructor"
+
+  const standingsRef = useRef(null);
+  const calendarRef  = useRef(null);
+  const replayRef    = useRef(null);
+
+  // heroInView removed — hero uses time-based motionStyle(), not scroll-based
+  const [heroRef]                              = useInView(0.05);
+  const [standingsTeaserRef, standingsInView]  = useInView(0.1);
+  const [calendarTeaserRef,  calendarInView]   = useInView(0.1);
+  const [replayTeaserRef,    replayInView]     = useInView(0.08);
+  const [ctaRef,             ctaInView]        = useInView(0.15);
+  const [footerRef,          footerInView]     = useInView(0.1);
+
+  // Boot hero animations after first paint
   useEffect(() => {
-    const timer = window.setTimeout(() => setAnimationsReady(true), 80);
-    return () => window.clearTimeout(timer);
+    const t = setTimeout(() => setAnimationsReady(true), 80);
+    return () => clearTimeout(t);
   }, []);
 
-  const motionStyle = (delay = 0) => (
+  // Playhead rAF — drives SVG clipPath width in sync with the 6s CSS sweep
+  useEffect(() => {
+    let start = null;
+    const duration = 6000;
+    let raf;
+    const step = (ts) => {
+      if (start === null) start = ts;
+      setPlayhead(((ts - start) % duration) / duration * 100);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+
+  // Lock body scroll when auth open
+  useEffect(() => {
+    document.body.style.overflow = authOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [authOpen]);
+
+  const scrollTo = (ref, label) => {
+    setActiveNav(label);
+    ref?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const motionStyle = (delay = 0) =>
     animationsReady
-      ? { animation: `revealUp 780ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms both` }
-      : { opacity: 0, transform: "translateY(18px)" }
+      ? { animation: `revealUp 780ms cubic-bezier(0.22,1,0.36,1) ${delay}ms both` }
+      : { opacity: 0, transform: "translateY(16px)" };
+
+  const navLink = (label, ref) => (
+    <button key={label} className="nav-link" onClick={() => scrollTo(ref, label)} style={{ position: "relative", paddingBottom: "2px" }}>
+      <span style={{ color: activeNav === label ? "#E8001D" : undefined, transition: "color 0.15s" }}>{"-> "}{label}</span>
+      <span style={{ position: "absolute", bottom: "-1px", left: 0, height: "1px", background: "#E8001D", width: activeNav === label ? "100%" : "0%", transition: "width 0.28s cubic-bezier(0.22,1,0.36,1)" }} />
+    </button>
   );
 
   return (
     <div data-motion-ready={animationsReady ? "true" : "false"}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=DM+Mono:wght@300;400;500&display=swap');
-
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        body {
-          background: #0A0A0B;
-          color: #888;
-          font-family: 'Geist', sans-serif;
-          -webkit-font-smoothing: antialiased;
-        }
+        body { background: #0A0A0B; color: #888; font-family: 'Geist', sans-serif; -webkit-font-smoothing: antialiased; }
 
-        .nav-link {
-          background: none; border: none; cursor: pointer;
-          font-family: 'Geist', sans-serif; font-size: 12px;
-          color: #555; letter-spacing: 0.01em; padding: 0;
-          transition: color 0.15s;
-        }
+        .nav-link { background: none; border: none; cursor: pointer; font-family: 'Geist', sans-serif; font-size: 12px; color: #555; letter-spacing: 0.01em; padding: 0; transition: color 0.15s; }
         .nav-link:hover { color: #C8C8C2; }
-
-        .filter-tab {
-          background: none; border: none; cursor: pointer;
-          font-family: 'Geist', sans-serif; font-size: 12px;
-          color: #555; padding: 0; transition: color 0.15s;
-        }
-        .filter-tab.active { color: #E0E0DA; font-weight: 500; }
-        .filter-tab:hover { color: #C8C8C2; }
-
-        .cta-btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: #E0E0DA; color: #0A0A0B; border: none;
-          padding: 10px 18px;
-          font-family: 'Geist', sans-serif; font-size: 12px; font-weight: 500;
-          cursor: pointer; transition: background 0.2s; white-space: nowrap;
-        }
-        .cta-btn:hover { background: #fff; }
-
-        .cta-btn-ghost {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: transparent; color: #C8C8C2;
-          border: 1px solid rgba(255,255,255,0.15);
-          padding: 9px 16px;
-          font-family: 'Geist', sans-serif; font-size: 11px; font-weight: 500;
-          cursor: pointer; transition: border-color 0.2s, color 0.2s;
-        }
-        .cta-btn-ghost:hover { border-color: rgba(255,255,255,0.4); color: #E0E0DA; }
-
-        .cta-btn-red {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: #E8001D; color: #fff; border: none;
-          padding: 12px 28px; border-radius: 3px;
-          font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 500;
-          cursor: pointer; transition: background 0.2s;
-        }
-        .cta-btn-red:hover { background: #c4001a; }
-
-        .gallery-tab {
-          background: none; border: none; cursor: pointer;
-          font-family: 'Geist', sans-serif; font-size: 12px;
-          color: #555; padding: 0; transition: color 0.15s;
-        }
-        .gallery-tab.active { color: #E0E0DA; font-weight: 500; }
-        .gallery-tab:hover { color: #C8C8C2; }
-
-        .checklist-item {
-          display: flex; align-items: center; gap: 10px;
-          font-size: 12px; color: #666;
-          padding: 7px 0; border-bottom: 1px solid #161618;
-        }
-        .checklist-item:last-child { border-bottom: none; }
-
-        .pill {
-          display: inline-block;
-          border: 1px solid #2a2a2a;
-          border-radius: 999px;
-          padding: 3px 12px;
-          font-size: 11px;
-          color: #555;
-          font-family: 'DM Mono', monospace;
-        }
-
-        .surface-glow {
-          position: relative;
-          isolation: isolate;
-          overflow: hidden;
-        }
-
-        .surface-glow::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          z-index: 0;
-          background:
-            radial-gradient(circle at 18% 30%, rgba(232,0,29,0.035), transparent 32%),
-            radial-gradient(circle at 78% 18%, rgba(255,255,255,0.015), transparent 22%),
-            linear-gradient(180deg, rgba(255,255,255,0.006) 0%, rgba(255,255,255,0) 100%);
-          opacity: 0.9;
-        }
-
-        .surface-glow::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          z-index: 0;
-          opacity: 0.022;
-          mix-blend-mode: screen;
-          background-image:
-            radial-gradient(rgba(255,255,255,0.05) 0.5px, transparent 0.5px),
-            radial-gradient(rgba(232,0,29,0.02) 0.35px, transparent 0.35px);
-          background-size: 7px 7px, 11px 11px;
-          background-position: 0 0, 3px 4px;
-        }
-
-        .surface-glow > * {
-          position: relative;
-          z-index: 1;
-        }
-
-        .surface-glow-soft::before {
-          background:
-            radial-gradient(circle at 18% 34%, rgba(232,0,29,0.012), transparent 38%),
-            radial-gradient(circle at 82% 14%, rgba(255,255,255,0.01), transparent 20%),
-            linear-gradient(180deg, rgba(255,255,255,0.005) 0%, rgba(255,255,255,0) 100%);
-        }
-
-        .surface-glow-soft::after {
-          opacity: 0.012;
-        }
-
-        @keyframes revealUp {
-          from {
-            opacity: 0;
-            transform: translateY(18px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes softFloat {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-8px);
-          }
-        }
-
-        @keyframes pulseGlow {
-          0%, 100% {
-            box-shadow: 0 0 0 rgba(232, 0, 29, 0);
-          }
-          50% {
-            box-shadow: 0 0 18px rgba(232, 0, 29, 0.08);
-          }
-        }
-
-        @keyframes fieldPulse {
-          0%, 100% {
-            transform: scale(1) translateY(0px);
-            opacity: 0.72;
-          }
-          50% {
-            transform: scale(1.018) translateY(-2px);
-            opacity: 0.94;
-          }
-        }
-
-        @keyframes pathDriftA {
-          0%, 100% {
-            transform: translate3d(0px, 0px, 0px);
-          }
-          50% {
-            transform: translate3d(0px, -3px, 0px);
-          }
-        }
-
-        @keyframes pathDriftB {
-          0%, 100% {
-            transform: translate3d(0px, 0px, 0px);
-          }
-          50% {
-            transform: translate3d(2px, 2px, 0px);
-          }
-        }
-
-        @keyframes orbitSpin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes orbitPulse {
-          0%, 100% {
-            opacity: 0.75;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1.03);
-          }
-        }
-
-        @keyframes traceFlow {
-          from {
-            stroke-dashoffset: 0;
-          }
-          to {
-            stroke-dashoffset: calc(-1 * var(--trace-cycle, 30));
-          }
-        }
-
-        @keyframes stripeBreathe {
-          0%, 100% {
-            opacity: 0.22;
-            transform: translateY(0px);
-          }
-          50% {
-            opacity: 0.5;
-            transform: translateY(-4px);
-          }
-        }
-
-        @keyframes cloudDrift {
-          0%, 100% {
-            transform: translate3d(0px, 0px, 0px) scale(1);
-            opacity: 0.18;
-          }
-          50% {
-            transform: translate3d(3px, -4px, 0px) scale(1.05);
-            opacity: 0.32;
-          }
-        }
-
-        @keyframes shellPrecess {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes electronJitter {
-          0%, 100% {
-            transform: scale(1) translateY(0px);
-            opacity: 0.72;
-          }
-          50% {
-            transform: scale(1.18) translateY(-1px);
-            opacity: 1;
-          }
-        }
-
-        @keyframes replayHexPulse {
-          0%, 100% {
-            opacity: 0.42;
-            transform: translateY(0px);
-          }
-          50% {
-            opacity: 0.82;
-            transform: translateY(-2px);
-          }
-        }
-
-        @keyframes kalmanPanelGlow {
-          0%, 100% {
-            opacity: 0.75;
-          }
-          50% {
-            opacity: 1;
-          }
-        }
-
-        @keyframes premiumSignalGlow {
-          0%, 100% {
-            opacity: 0.18;
-            filter: blur(2px);
-          }
-          50% {
-            opacity: 0.34;
-            filter: blur(4px);
-          }
-        }
-
-        @keyframes premiumSignalFill {
-          0%, 100% {
-            opacity: 0.16;
-          }
-          50% {
-            opacity: 0.26;
-          }
-        }
-
-        .reveal-up {
-          opacity: 0;
-        }
-
-        [data-motion-ready="true"] .reveal-up {
-          animation: revealUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-
-        .soft-float {
-          transform: translateY(0px);
-        }
-
-        [data-motion-ready="true"] .soft-float {
-          animation: softFloat 7s ease-in-out infinite;
-        }
-
-        .session-card {
-          transition: transform 0.25s ease, border-color 0.25s ease, background 0.2s;
-        }
-
-        .session-card:hover {
-          transform: translateY(-4px);
-          border-color: #2A2A2D;
-        }
-
-        .stat-tile {
-          transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
-        }
-
-        .session-card:hover .stat-tile {
-          transform: translateY(-1px);
-          border-color: #26262A;
-          background: #101013;
-        }
-
-        [data-motion-ready="true"] .pulse-glow {
-          animation: pulseGlow 4.5s ease-in-out infinite;
-        }
-
-        .field-shape-svg path,
-        .field-shape-svg circle {
-          transform-box: fill-box;
-          transform-origin: center;
-        }
-
-        [data-motion-ready="true"] .field-shape-card {
-          animation: pulseGlow 6s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .field-shape-svg {
-          animation: fieldPulse 7s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .field-shape-svg .shape-a {
-          animation: pathDriftA 6.5s ease-in-out infinite;
-          stroke-dasharray: 18 14;
-          animation-name: pathDriftA, traceFlow;
-          animation-duration: 6.5s, 4.8s;
-          animation-timing-function: ease-in-out, linear;
-          animation-iteration-count: infinite, infinite;
-        }
-
-        [data-motion-ready="true"] .field-shape-svg .shape-b {
-          animation: pathDriftB 7.2s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .field-shape-svg .shape-c {
-          animation: pathDriftA 8.2s ease-in-out infinite reverse;
-        }
-
-        [data-motion-ready="true"] .field-shape-svg .field-dot {
-          animation: orbitPulse 4.8s ease-in-out infinite;
-        }
-
-        .cta-orbit {
-          transform-origin: 50% 50%;
-        }
-
-        [data-motion-ready="true"] .cta-orbit {
-          animation: revealUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) 460ms both;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .quantum-shell {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: shellPrecess 28s linear infinite;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-b {
-          animation-duration: 36s;
-          animation-direction: reverse;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-c {
-          animation-duration: 44s;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-d {
-          animation-duration: 24s;
-          animation-direction: reverse;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-e {
-          animation-duration: 31s;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .quantum-shell.shell-f {
-          animation-duration: 18s;
-          animation-direction: reverse;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .electron-cloud {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: cloudDrift 8s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .electron-cloud.cloud-b {
-          animation-duration: 11s;
-          animation-direction: reverse;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .electron-cloud.cloud-c {
-          animation-duration: 13s;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .orbit-core {
-          animation: orbitPulse 5.2s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .cta-orbit .quantum-electron {
-          animation: electronJitter 3.8s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .replay-stripe-field .stripe-line {
-          animation: stripeBreathe 6.6s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .replay-stripe-field .stripe-line:nth-child(2n) {
-          animation-duration: 8.2s;
-        }
-
-        [data-motion-ready="true"] .replay-stripe-field .stripe-line:nth-child(3n) {
-          animation-duration: 9.4s;
-        }
-
-        [data-motion-ready="true"] .telemetry-graph .telemetry-line {
-          --trace-cycle: 30;
-          stroke-dasharray: 18 12;
-          stroke-dashoffset: 0;
-          animation: traceFlow 2.6s linear infinite;
-        }
-
-        [data-motion-ready="true"] .telemetry-graph .telemetry-line.telemetry-secondary {
-          --trace-cycle: 26;
-          stroke-dasharray: 12 14;
-          animation-duration: 3.8s;
-        }
-
-        [data-motion-ready="true"] .telemetry-graph .telemetry-line.telemetry-tertiary {
-          --trace-cycle: 28;
-          stroke-dasharray: 10 18;
-          animation-duration: 5.2s;
-        }
-
-        [data-motion-ready="true"] .telemetry-graph .telemetry-flow {
-          --trace-cycle: 56;
-          stroke-dasharray: 10 46;
-          stroke-dashoffset: 0;
-          animation: traceFlow 1.8s linear infinite;
-        }
-
-        [data-motion-ready="true"] .telemetry-graph .telemetry-flow.telemetry-secondary {
-          --trace-cycle: 64;
-          stroke-dasharray: 8 56;
-          animation-duration: 2.8s;
-        }
-
-        [data-motion-ready="true"] .telemetry-graph .telemetry-flow.telemetry-tertiary {
-          --trace-cycle: 72;
-          stroke-dasharray: 8 64;
-          animation-duration: 3.6s;
-        }
-
-        [data-motion-ready="true"] .card-signal-panel {
-          box-shadow: inset 0 0 0 rgba(232,0,29,0);
-        }
-
-        [data-motion-ready="true"] .card-signal-graph .card-signal-fill {
-          animation: premiumSignalFill 9.2s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .card-signal-graph .card-signal-trace {
-          animation: premiumSignalGlow 11.6s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .replay-hex-stack .hex-shell,
-        [data-motion-ready="true"] .replay-hex-stack .hex-cloud {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: replayHexPulse 7s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .replay-hex-stack {
-          filter: drop-shadow(0 0 18px rgba(232,0,29,0.2));
-        }
-
-        [data-motion-ready="true"] .replay-hex-stack .hex-cloud {
-          animation-duration: 9.4s;
-          opacity: 1;
-        }
-
-        [data-motion-ready="true"] .replay-hex-stack .hex-cloud.cloud-b {
-          animation-duration: 11.2s;
-          animation-direction: reverse;
-        }
-
-        [data-motion-ready="true"] .replay-hex-stack .hex-shell.shell-b { animation-delay: 220ms; }
-        [data-motion-ready="true"] .replay-hex-stack .hex-shell.shell-c { animation-delay: 440ms; }
-
-        [data-motion-ready="true"] .replay-hex-stack .hex-beam {
-          stroke-dasharray: 10 14;
-          animation: traceFlow 4.8s linear infinite;
-        }
-
-        [data-motion-ready="true"] .replay-hex-stack .hex-core {
-          animation: orbitPulse 5.6s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .kalman-visual .state-halo,
-        [data-motion-ready="true"] .kalman-visual .state-ring {
-          animation: orbitPulse 6.2s ease-in-out infinite;
-          transform-box: fill-box;
-          transform-origin: center;
-        }
-
-        [data-motion-ready="true"] .kalman-visual .state-panel {
-          animation: kalmanPanelGlow 6.8s ease-in-out infinite;
-        }
-
-        [data-motion-ready="true"] .kalman-visual .panel-line {
-          stroke-dasharray: 12 12;
-          animation: traceFlow 3.2s linear infinite;
-        }
-
-        .landing-nav > div > *,
-        .hero-copy > *,
-        .hero-side > *,
-        .filter-group > *,
-        .feature-copy > *,
-        .feature-visual-stack > *,
-        .feature-list > *,
-        .snapshot-card > *,
-        .banner-copy > *,
-        .banner-meta > *,
-        .gallery-header > *,
-        .gallery-tabs > *,
-        .cta-copy > *,
-        .cta-center > *,
-        .footer-copy > *,
-        .footer-links > *,
-        .watermark > *,
-        .session-card-head > *,
-          .session-card-copy > *,
-          .session-card-stats > * {
-          opacity: 0;
-        }
-
-        [data-motion-ready="true"] .landing-nav > div > *,
-        [data-motion-ready="true"] .hero-copy > *,
-        [data-motion-ready="true"] .hero-side > *,
-        [data-motion-ready="true"] .filter-group > *,
-        [data-motion-ready="true"] .feature-copy > *,
-        [data-motion-ready="true"] .feature-visual-stack > *,
-        [data-motion-ready="true"] .feature-list > *,
-        [data-motion-ready="true"] .snapshot-card > *,
-        [data-motion-ready="true"] .banner-copy > *,
-        [data-motion-ready="true"] .banner-meta > *,
-        [data-motion-ready="true"] .gallery-header > *,
-        [data-motion-ready="true"] .gallery-tabs > *,
-        [data-motion-ready="true"] .cta-copy > *,
-        [data-motion-ready="true"] .cta-center > *,
-        [data-motion-ready="true"] .footer-copy > *,
-        [data-motion-ready="true"] .footer-links > *,
-        [data-motion-ready="true"] .watermark > *,
-        [data-motion-ready="true"] .session-card-head > *,
-        [data-motion-ready="true"] .session-card-copy > *,
-        [data-motion-ready="true"] .session-card-stats > * {
-          animation: revealUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-
-        [data-motion-ready="true"] .landing-nav > div:first-child > *:nth-child(1) { animation-delay: 80ms; }
-        [data-motion-ready="true"] .landing-nav > div:first-child > *:nth-child(2) { animation-delay: 140ms; }
-        [data-motion-ready="true"] .landing-nav .brand-title { animation-delay: 120ms; }
-        [data-motion-ready="true"] .landing-nav .brand-subtitle { animation-delay: 180ms; }
-        [data-motion-ready="true"] .landing-nav > div:last-child > *:nth-child(1) { animation-delay: 160ms; }
-        [data-motion-ready="true"] .landing-nav > div:last-child > *:nth-child(2) { animation-delay: 220ms; }
-
-        [data-motion-ready="true"] .hero-copy > *:nth-child(1) { animation-delay: 180ms; }
-        [data-motion-ready="true"] .hero-side > *:nth-child(1) { animation-delay: 260ms; }
-        [data-motion-ready="true"] .hero-side > *:nth-child(2) { animation-delay: 340ms; }
-
-        [data-motion-ready="true"] .filter-group > *:nth-child(1) { animation-delay: 220ms; }
-        [data-motion-ready="true"] .filter-group > *:nth-child(2) { animation-delay: 270ms; }
-        [data-motion-ready="true"] .filter-group > *:nth-child(3) { animation-delay: 320ms; }
-        [data-motion-ready="true"] .filter-group > *:nth-child(4) { animation-delay: 370ms; }
-        .filter-stamp { opacity: 0; }
-        [data-motion-ready="true"] .filter-stamp { animation: revealUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 420ms both; }
-
-        [data-motion-ready="true"] .telemetry-panel > *:nth-child(1) { animation-delay: 260ms; }
-        [data-motion-ready="true"] .telemetry-panel > *:nth-child(2) { animation-delay: 320ms; }
-        [data-motion-ready="true"] .telemetry-panel > *:nth-child(3) { animation-delay: 380ms; }
-        [data-motion-ready="true"] .telemetry-panel > *:nth-child(4) { animation-delay: 440ms; }
-
-        [data-motion-ready="true"] .replay-panel > *:nth-child(1) { animation-delay: 300ms; }
-        [data-motion-ready="true"] .replay-panel > *:nth-child(2) { animation-delay: 360ms; }
-        [data-motion-ready="true"] .replay-panel > *:nth-child(3) { animation-delay: 430ms; }
-        [data-motion-ready="true"] .replay-panel-copy > *:nth-child(1) { animation-delay: 420ms; }
-        [data-motion-ready="true"] .replay-panel-copy > *:nth-child(2) { animation-delay: 500ms; }
-
-        [data-motion-ready="true"] .feature-copy > *:nth-child(1) { animation-delay: 300ms; }
-        [data-motion-ready="true"] .feature-copy > *:nth-child(2) { animation-delay: 360ms; }
-        [data-motion-ready="true"] .feature-copy > *:nth-child(3) { animation-delay: 430ms; }
-        [data-motion-ready="true"] .feature-copy > *:nth-child(4) { animation-delay: 500ms; }
-        [data-motion-ready="true"] .feature-visual-stack > *:nth-child(1) { animation-delay: 380ms; }
-        [data-motion-ready="true"] .feature-visual-stack > *:nth-child(2) { animation-delay: 460ms; }
-        [data-motion-ready="true"] .feature-list > *:nth-child(1) { animation-delay: 420ms; }
-        [data-motion-ready="true"] .feature-list > *:nth-child(2) { animation-delay: 470ms; }
-        [data-motion-ready="true"] .feature-list > *:nth-child(3) { animation-delay: 520ms; }
-        [data-motion-ready="true"] .snapshot-card > *:nth-child(1) { animation-delay: 540ms; }
-        [data-motion-ready="true"] .snapshot-card > *:nth-child(2) { animation-delay: 590ms; }
-        [data-motion-ready="true"] .snapshot-card > *:nth-child(3) { animation-delay: 640ms; }
-        [data-motion-ready="true"] .snapshot-card > *:nth-child(4) { animation-delay: 690ms; }
-
-        [data-motion-ready="true"] .banner-copy > *:nth-child(1) { animation-delay: 240ms; }
-        [data-motion-ready="true"] .banner-copy > *:nth-child(2) { animation-delay: 320ms; }
-        [data-motion-ready="true"] .banner-meta > *:nth-child(1) { animation-delay: 300ms; }
-        [data-motion-ready="true"] .banner-meta > *:nth-child(2) { animation-delay: 360ms; }
-        .banner-note { opacity: 0; }
-        [data-motion-ready="true"] .banner-note { animation: revealUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 440ms both; }
-
-        [data-motion-ready="true"] .gallery-header > *:nth-child(1) { animation-delay: 280ms; }
-        [data-motion-ready="true"] .gallery-header > *:nth-child(2) { animation-delay: 340ms; }
-        [data-motion-ready="true"] .gallery-tabs > *:nth-child(1) { animation-delay: 360ms; }
-        [data-motion-ready="true"] .gallery-tabs > *:nth-child(2) { animation-delay: 410ms; }
-        [data-motion-ready="true"] .gallery-tabs > *:nth-child(3) { animation-delay: 460ms; }
-        [data-motion-ready="true"] .gallery-tabs > *:nth-child(4) { animation-delay: 510ms; }
-
-        [data-motion-ready="true"] .cta-copy > *:nth-child(1) { animation-delay: 260ms; }
-        [data-motion-ready="true"] .cta-copy > *:nth-child(2) { animation-delay: 330ms; }
-        [data-motion-ready="true"] .cta-copy > *:nth-child(3) { animation-delay: 400ms; }
-        [data-motion-ready="true"] .cta-center > *:nth-child(1) { animation-delay: 340ms; }
-        [data-motion-ready="true"] .cta-center > *:nth-child(2) { animation-delay: 420ms; }
-        [data-motion-ready="true"] .cta-center > *:nth-child(3) { animation-delay: 500ms; }
-        .cta-orbit { opacity: 0; }
-
-        [data-motion-ready="true"] .footer-copy > *:nth-child(1) { animation-delay: 180ms; }
-        [data-motion-ready="true"] .footer-copy > *:nth-child(2) { animation-delay: 240ms; }
-        [data-motion-ready="true"] .footer-links > *:nth-child(1) { animation-delay: 220ms; }
-        [data-motion-ready="true"] .footer-links > *:nth-child(2) { animation-delay: 270ms; }
-        [data-motion-ready="true"] .footer-links > *:nth-child(3) { animation-delay: 320ms; }
-        [data-motion-ready="true"] .footer-links > *:nth-child(4) { animation-delay: 370ms; }
-        [data-motion-ready="true"] .watermark > * { animation-delay: 320ms; }
-
-        [data-motion-ready="true"] .session-card-head > *:nth-child(1) { animation-delay: calc(var(--card-delay, 0ms) + 70ms); }
-        [data-motion-ready="true"] .session-card-head > *:nth-child(2) { animation-delay: calc(var(--card-delay, 0ms) + 120ms); }
-        [data-motion-ready="true"] .session-card-copy > *:nth-child(1) { animation-delay: calc(var(--card-delay, 0ms) + 90ms); }
-        [data-motion-ready="true"] .session-card-copy > *:nth-child(2) { animation-delay: calc(var(--card-delay, 0ms) + 130ms); }
-        [data-motion-ready="true"] .session-card-copy > *:nth-child(3) { animation-delay: calc(var(--card-delay, 0ms) + 170ms); }
-        [data-motion-ready="true"] .session-card-stats > *:nth-child(1) { animation-delay: calc(var(--card-delay, 0ms) + 220ms); }
-        [data-motion-ready="true"] .session-card-stats > *:nth-child(2) { animation-delay: calc(var(--card-delay, 0ms) + 260ms); }
-        [data-motion-ready="true"] .session-card-stats > *:nth-child(3) { animation-delay: calc(var(--card-delay, 0ms) + 300ms); }
-        [data-motion-ready="true"] .session-card-stats > *:nth-child(4) { animation-delay: calc(var(--card-delay, 0ms) + 340ms); }
+        .cta-btn { display: inline-flex; align-items: center; gap: 6px; background: #E0E0DA; color: #0A0A0B; border: none; padding: 10px 20px; font-family: 'Geist', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.2s, transform 0.15s; white-space: nowrap; }
+        .cta-btn:hover { background: #fff; transform: translateY(-1px); }
+        .cta-btn-red { display: inline-flex; align-items: center; gap: 6px; background: #E8001D; color: #fff; border: none; padding: 12px 28px; font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s, transform 0.15s; }
+        .cta-btn-red:hover { background: #c4001a; transform: translateY(-1px); }
+        .ghost-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: #666; border: 1px solid #1e1e20; padding: 8px 18px; font-family: 'Geist', sans-serif; font-size: 11px; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+        .ghost-btn:hover { border-color: #3a3a3d; color: #C8C8C2; }
+        .pill { display: inline-block; border: 1px solid #1e1e20; border-radius: 999px; padding: 3px 12px; font-size: 10px; color: #444; font-family: 'DM Mono', monospace; letter-spacing: 0.06em; }
+
+        /* ── Ticker ── */
+        @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }
+        .ticker-inner { animation: tickerScroll 32s linear infinite; }
+        .ticker-strip:hover .ticker-inner { animation-play-state: paused; }
+
+        /* ── Hero mount reveal ── */
+        @keyframes revealUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Prism float ── */
+        @keyframes softFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+        [data-motion-ready="true"] .soft-float { animation: softFloat 7s ease-in-out infinite; }
+
+        /* ── Hero ambient glow ── */
+        @keyframes heroGlowPulse { 0%, 100% { opacity: 0.07; } 50% { opacity: 0.14; } }
+        .hero-glow { animation: heroGlowPulse 5s ease-in-out infinite; }
+
+        /* ── Replay trace lines ── */
+        @keyframes traceFlow { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -30; } }
+        .replay-line   { stroke-dasharray: 20 10; animation: traceFlow 2.4s linear infinite; }
+        .replay-line-b { stroke-dasharray: 14 14; animation: traceFlow 3.6s linear infinite; }
+        .replay-line-c { stroke-dasharray:  8 20; animation: traceFlow 5.2s linear infinite; }
+
+        /* replay-playhead: no CSS animation — position driven by playhead state via x1/x2 attrs */
+
+        /* ── Hex prism ── */
+        @keyframes prismRotate    { from { transform: rotate(0deg);   } to { transform: rotate(360deg);  } }
+        @keyframes prismRotateRev { from { transform: rotate(0deg);   } to { transform: rotate(-360deg); } }
+        @keyframes faceShimmer    { 0%, 100% { opacity: 0.08; } 50% { opacity: 0.22; } }
+        .prism-outer { transform-box: fill-box; transform-origin: center; animation: prismRotate    18s linear infinite; }
+        .prism-mid   { transform-box: fill-box; transform-origin: center; animation: prismRotateRev 11s linear infinite; }
+        .prism-inner { transform-box: fill-box; transform-origin: center; animation: prismRotate     7s linear infinite; }
+        .prism-face   { animation: faceShimmer 3.5s ease-in-out infinite; }
+        .prism-face.b { animation-delay: 1.16s; }
+        .prism-face.c { animation-delay: 2.33s; }
+
+        /* ── Pulse (prism core + atom nucleus) ── */
+        @keyframes orbitPulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+        .prism-core { animation: orbitPulse 4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+
+        /* ── CTA atom electron shells ── */
+        @keyframes orbitSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .cta-orbit .q-shell   { transform-box: fill-box; transform-origin: center; animation: orbitSpin 28s linear infinite; }
+        .cta-orbit .q-shell.b { animation-duration: 38s; animation-direction: reverse; }
+        .cta-orbit .q-shell.c { animation-duration: 50s; }
+        .cta-orbit .o-core    { animation: orbitPulse 4.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+
+        /* ── Auth modal ── */
+        @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes dotBounce { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
 
         @media (prefers-reduced-motion: reduce) {
-          .reveal-up,
-          .soft-float,
-          .pulse-glow,
-          .landing-nav > div > *,
-          .hero-copy > *,
-          .hero-side > *,
-          .filter-group > *,
-          .feature-copy > *,
-          .feature-visual-stack > *,
-          .feature-list > *,
-          .snapshot-card > *,
-          .banner-copy > *,
-          .banner-meta > *,
-          .gallery-header > *,
-          .gallery-tabs > *,
-          .cta-copy > *,
-          .cta-center > *,
-          .footer-copy > *,
-          .footer-links > *,
-          .watermark > *,
-          .session-card-head > *,
-          .session-card-copy > *,
-          .session-card-stats > * {
-            animation: none !important;
-            opacity: 1 !important;
-            transform: none !important;
-          }
+          *, *::before, *::after { animation: none !important; transition: none !important; }
         }
       `}</style>
 
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+
       <div style={{ position: "relative", zIndex: 1 }}>
-      <nav className="landing-nav" style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 32px", height: "48px",
-        borderBottom: "1px solid #161618",
-        position: "sticky", top: 0, background: "#0A0A0B", zIndex: 100,
-      }}>
-        <div style={{ display: "flex", gap: "28px", flex: 1 }}>
-          {NAV_LEFT.map((l) => <button key={l} className="nav-link">{"-> "}{l}</button>)}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-          <span className="brand-title" style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "16px", letterSpacing: "-0.01em", lineHeight: 1, color: "#E0E0DA", ...motionStyle(120) }}>Lumen</span>
-          <span className="brand-subtitle" style={{ fontFamily: "'DM Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", color: "#333", textTransform: "uppercase", ...motionStyle(180) }}>Formula One Analytics</span>
-        </div>
-        <div style={{ display: "flex", gap: "28px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
-          <button className="nav-link">Sessions</button>
-          <button className="cta-btn" style={{ padding: "7px 16px", fontSize: "11px" }}>{"Sign In ->"}</button>
-        </div>
-      </nav>
 
-      <section className="surface-glow" style={{
-        padding: "48px 32px 40px",
-        display: "grid", gridTemplateColumns: "1fr 300px",
-        gap: "40px", alignItems: "start",
-        borderBottom: "1px solid #161618",
-        background: "radial-gradient(circle at 14% 24%, rgba(232,0,29,0.08), transparent 28%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)",
-      }}>
-        <div className="hero-copy">
-        <h1 className="reveal-up" style={{
-          fontFamily: "'Instrument Serif', serif", fontWeight: 400,
-          fontSize: "clamp(36px, 5vw, 60px)", lineHeight: 1.06,
-          letterSpacing: "-0.02em", color: "#E8E8E2", maxWidth: "600px",
-          animationDelay: "80ms",
+        {/* ── NAV ── */}
+        <nav style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0 32px", height: "48px", borderBottom: "1px solid #161618",
+          position: "sticky", top: 0,
+          background: scrolled ? "rgba(10,10,11,0.94)" : "#0A0A0B",
+          backdropFilter: scrolled ? "blur(14px)" : "none", zIndex: 100,
+          transition: "background 0.3s, box-shadow 0.3s",
+          boxShadow: scrolled ? "0 1px 0 rgba(232,0,29,0.05)" : "none",
         }}>
-          Standings, Calendars, and Telemetry Replay - Every Season, Every Circuit
-        </h1>
-        </div>
-        <div className="hero-side" style={{ paddingTop: "6px" }}>
-          <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.75, marginBottom: "22px" }}>
-            Driver standings, race calendars, session overviews, and animated telemetry replay - all in one place, powered by FastF1.
-          </p>
-          <button className="cta-btn">{"Open Dashboard ->"}</button>
-        </div>
-      </section>
-
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 32px", height: "40px",
-        borderBottom: "1px solid #161618", background: "#0A0A0B",
-      }}>
-        <div className="filter-group" style={{ display: "flex", gap: "28px" }}>
-          {FILTER_TABS.map((t) => (
-            <button key={t} className={`filter-tab${activeFilter === t ? " active" : ""}`}
-              onClick={() => setActiveFilter(t)}>{t}</button>
-          ))}
-        </div>
-        <span className="filter-stamp" style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "#333", letterSpacing: "0.1em" }}>ALL SEASONS . ALL CIRCUITS</span>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "360px" }}>
-        <div className="telemetry-panel reveal-up" style={{
-          background: "radial-gradient(circle at 18% 24%, rgba(232,0,29,0.06), transparent 28%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
-          display: "flex", flexDirection: "column", justifyContent: "space-between",
-          padding: "28px", borderRight: "1px solid #161618",
-          animationDelay: "220ms",
-        }}>
-          <div style={{ fontSize: "11px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em" }}>
-            Telemetry Overlay . Driver Comparison
+          <div style={{ display: "flex", gap: "28px", flex: 1 }}>
+            {navLink("Standings", standingsRef)}
+            {navLink("Calendar", calendarRef)}
           </div>
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "stretch", padding: "60px 28px", gap: "20px", opacity: 0.04 }}>
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} style={{ width: "1px", background: "#fff", flex: "none" }} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+            <span style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "16px", letterSpacing: "-0.01em", lineHeight: 1, color: "#E0E0DA", ...motionStyle(120) }}>Lumen</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "7px", letterSpacing: "0.2em", color: "#2e2e2e", textTransform: "uppercase", ...motionStyle(180) }}>Formula One Analytics</span>
+          </div>
+          <div style={{ display: "flex", gap: "28px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
+            {navLink("Replay", replayRef)}
+            <button className="cta-btn" style={{ padding: "7px 16px", fontSize: "11px" }} onClick={() => setAuthOpen(true)}>{"Sign In ->"}</button>
+          </div>
+        </nav>
+
+        {/* ── TICKER ── */}
+        <div className="ticker-strip" style={{ borderBottom: "1px solid #161618", background: "#0A0A0B", height: "30px", overflow: "hidden", position: "relative" }}>
+          <div style={{ position: "absolute", left: 0, top: 0, width: "60px", height: "100%", background: "linear-gradient(90deg, #0A0A0B 40%, transparent)", zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", right: 0, top: 0, width: "60px", height: "100%", background: "linear-gradient(270deg, #0A0A0B 40%, transparent)", zIndex: 2, pointerEvents: "none" }} />
+          <div className="ticker-inner" style={{ display: "flex", alignItems: "center", height: "100%", whiteSpace: "nowrap" }}>
+            {[...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
+              <div key={i} style={{ display: "inline-flex", alignItems: "center", height: "100%", flexShrink: 0 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "0", padding: "0 20px", height: "100%" }}>
+                  {item.category === "RND" ? (
+                    <>
+                      <span style={{ fontSize: "8px", color: "#2a2a2a", fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", marginRight: "8px" }}>{item.label.toUpperCase()}</span>
+                      <span style={{ fontSize: "10px", color: "#555", fontFamily: "'DM Mono', monospace" }}>{item.value}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: "8px", color: "#2a2a2a", fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", marginRight: "10px" }}>{item.category}</span>
+                      <span style={{ fontSize: "9px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", marginRight: "10px" }}>{item.pos}</span>
+                      <span style={{ fontSize: "10px", color: "#666", fontFamily: "'DM Mono', monospace", marginRight: "8px" }}>{item.label}</span>
+                      <span style={{ fontSize: "11px", color: "#C8C8C2", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.02em", fontWeight: 500, marginRight: "4px" }}>{item.value}</span>
+                      <span style={{ fontSize: "8px", color: "#2a2a2a", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>{item.unit}</span>
+                    </>
+                  )}
+                </div>
+                <div style={{ width: "1px", height: "14px", background: "#1a1a1a", flexShrink: 0 }} />
+              </div>
             ))}
           </div>
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "2px" }}>
-            {[
-              { color: "#E8001D", pts: [35, 12, 28, 8, 22, 40, 18, 32, 10] },
-              { color: "#2a2a2a", pts: [45, 28, 40, 22, 35, 52, 28, 44, 24] },
-              { color: "#1a1a1a", pts: [55, 40, 50, 35, 48, 62, 40, 55, 36] },
-            ].map((t, i) => {
-              const points = t.pts.map((y, x) => `${x * 50},${y}`).join(" ");
-              const path = `M ${t.pts.map((y, x) => `${x * 50},${y}`).join(" L ")}`;
-              const lineClass = i === 0 ? "telemetry-line telemetry-primary" : i === 1 ? "telemetry-line telemetry-secondary" : "telemetry-line telemetry-tertiary";
-
-              return (
-                <svg key={i} className="telemetry-graph" viewBox="0 0 400 50" preserveAspectRatio="none" style={{ width: "100%", height: "38px" }}>
-                  <polyline
-                    className={lineClass}
-                    points={points}
-                    fill="none"
-                    stroke={t.color}
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    vectorEffect="non-scaling-stroke"
-                    shapeRendering="geometricPrecision"
-                  />
-                  {i < 2 ? (
-                    <circle r={i === 0 ? "3.2" : "2.6"} fill={i === 0 ? "#E8001D" : "#74747A"} opacity={i === 0 ? "0.95" : "0.55"}>
-                      <animateMotion dur={i === 0 ? "2.8s" : "4.2s"} repeatCount="indefinite" calcMode="linear" path={path} />
-                    </circle>
-                  ) : null}
-                </svg>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>
-            SPEED . THROTTLE . BRAKE . DRS
-          </div>
         </div>
 
-        <div className="replay-panel reveal-up" style={{
-          background: "radial-gradient(circle at 72% 20%, rgba(232,0,29,0.08), transparent 24%), linear-gradient(180deg, #0E0E0F 0%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
-          display: "flex", flexDirection: "column", justifyContent: "space-between",
-          padding: "28px",
-          animationDelay: "300ms",
+        {/* ── HERO ── */}
+        <section ref={heroRef} style={{
+          padding: "80px 32px 72px", borderBottom: "1px solid #161618",
+          background: "radial-gradient(ellipse at 0% 50%, rgba(232,0,29,0.07) 0%, transparent 55%), #0A0A0B",
+          position: "relative", overflow: "hidden",
+          display: "grid", gridTemplateColumns: "1fr auto", gap: "48px", alignItems: "center",
         }}>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <span style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>PIXI.js Renderer</span>
+          <div className="hero-glow" style={{ position: "absolute", top: 0, left: "-8%", width: "55%", height: "100%", background: "radial-gradient(ellipse at 20% 50%, rgba(232,0,29,1), transparent 58%)", pointerEvents: "none", zIndex: 0 }} />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "28px", ...motionStyle(60) }}>
+              <span className="pill">Replay</span>
+              <span className="pill">Standings</span>
+              <span className="pill">Calendar</span>
+            </div>
+            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(42px, 5.5vw, 74px)", lineHeight: 1.04, letterSpacing: "-0.025em", color: "#E8E8E2", maxWidth: "560px", ...motionStyle(100) }}>
+              Every season.<br />Every circuit.<br /><em style={{ color: "#999" }}>Frame by frame.</em>
+            </h1>
+            <p style={{ fontSize: "13px", color: "#555", lineHeight: 1.8, marginTop: "24px", maxWidth: "340px", ...motionStyle(180) }}>
+              Driver standings, race calendars, and animated telemetry replay — powered by FastF1.
+            </p>
+            <div style={{ display: "flex", gap: "12px", marginTop: "32px", alignItems: "center", ...motionStyle(240) }}>
+              <button className="cta-btn" onClick={() => setAuthOpen(true)}>{"Open Dashboard ->"}</button>
+              <button className="ghost-btn" onClick={() => scrollTo(replayRef, "Replay")}>See how it works</button>
+            </div>
           </div>
-          <div className="soft-float" style={{ position: "absolute", top: "40px", left: "50%", transform: "translateX(-50%)", pointerEvents: "none" }}>
-            <svg className="replay-hex-stack" viewBox="0 0 180 150" width="180" height="150" style={{ opacity: 0.7 }}>
+
+          {/* Hex prism */}
+          <div className="soft-float" style={{ position: "relative", zIndex: 1, flexShrink: 0, ...motionStyle(320) }}>
+            <svg viewBox="0 0 160 160" width="260" height="260" style={{ overflow: "visible", display: "block" }}>
               <defs>
-                <linearGradient id="replayPrismGlow" x1="34" y1="22" x2="148" y2="116" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#FF9AA5" stopOpacity="0.18" />
-                  <stop offset="46%" stopColor="#E8001D" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#E8001D" stopOpacity="0.08" />
-                </linearGradient>
-                <radialGradient id="replayHexCloudA" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#FF4D67" stopOpacity="0.26" />
-                  <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
-                </radialGradient>
-                <radialGradient id="replayHexCloudB" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#FF6B7E" stopOpacity="0.16" />
-                  <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
-                </radialGradient>
+                <linearGradient id="pf1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#E8001D" stopOpacity="0.35"/><stop offset="100%" stopColor="#FF6B35" stopOpacity="0.06"/></linearGradient>
+                <linearGradient id="pf2" x1="1" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8001D" stopOpacity="0.18"/><stop offset="100%" stopColor="#E8001D" stopOpacity="0.04"/></linearGradient>
+                <linearGradient id="pf3" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stopColor="#FF3B52" stopOpacity="0.22"/><stop offset="100%" stopColor="#E8001D" stopOpacity="0.04"/></linearGradient>
+                <filter id="pglow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter>
               </defs>
-              <g className="hex-cloud cloud-a">
-                <ellipse cx="90" cy="76" rx="68" ry="24" fill="url(#replayHexCloudA)" transform="rotate(-18 90 76)" />
-                <ellipse cx="90" cy="76" rx="34" ry="72" fill="url(#replayHexCloudB)" transform="rotate(24 90 76)" />
+              <g className="prism-outer">
+                <polygon points="80,12 124,36 124,84 80,108 36,84 36,36" fill="none" stroke="rgba(232,0,29,0.1)" strokeWidth="0.8"/>
+                <line x1="80" y1="12" x2="80" y2="108" stroke="rgba(232,0,29,0.05)" strokeWidth="0.5"/>
+                <line x1="36" y1="36" x2="124" y2="84" stroke="rgba(232,0,29,0.05)" strokeWidth="0.5"/>
+                <line x1="124" y1="36" x2="36" y2="84" stroke="rgba(232,0,29,0.05)" strokeWidth="0.5"/>
               </g>
-              <g className="hex-cloud cloud-b">
-                <ellipse cx="90" cy="76" rx="76" ry="20" fill="rgba(232,0,29,0.08)" transform="rotate(34 90 76)" />
-                <ellipse cx="90" cy="76" rx="24" ry="78" fill="rgba(255,77,103,0.07)" transform="rotate(-28 90 76)" />
+              <g className="prism-mid">
+                <polygon points="80,28 108,44 108,76 80,92 52,76 52,44" fill="none" stroke="rgba(232,0,29,0.26)" strokeWidth="1.1"/>
+                <polygon className="prism-face"   points="80,28 108,44 80,60" fill="url(#pf1)"/>
+                <polygon className="prism-face b" points="108,44 108,76 80,60" fill="url(#pf2)"/>
+                <polygon className="prism-face c" points="80,92 52,76 80,60" fill="url(#pf3)"/>
+                <polygon points="80,28 52,44 80,60"  fill="rgba(232,0,29,0.04)"/>
+                <polygon points="52,44 52,76 80,60"  fill="rgba(232,0,29,0.06)"/>
+                <polygon points="108,76 80,92 80,60" fill="rgba(232,0,29,0.05)"/>
               </g>
-              <g className="hex-shell shell-a">
-                <path d="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 Z" fill="none" stroke="rgba(232,0,29,0.34)" strokeWidth="1.3" />
+              <g className="prism-inner">
+                <polygon points="80,46 94,54 94,70 80,78 66,70 66,54" fill="none" stroke="rgba(232,0,29,0.44)" strokeWidth="1.2"/>
+                <polygon points="80,46 94,54 94,70 80,78 66,70 66,54" fill="rgba(232,0,29,0.07)"/>
               </g>
-              <g className="hex-shell shell-b" transform="rotate(18 90 76)">
-                <path d="M90,26 L130,48 L130,104 L90,126 L50,104 L50,48 Z" fill="none" stroke="rgba(232,0,29,0.28)" strokeWidth="1.15" />
-              </g>
-              <g className="hex-shell shell-c" transform="rotate(-26 90 76)">
-                <path d="M90,32 L154,56 L154,96 L90,120 L26,96 L26,56 Z" fill="none" stroke="rgba(232,0,29,0.2)" strokeWidth="1.05" />
-              </g>
-              <path className="hex-beam" d="M90,18 L118,40 L130,48 L154,56" fill="none" stroke="rgba(232,0,29,0.3)" strokeWidth="1" />
-              <path className="hex-beam" d="M36,104 L62,98 L90,134 L122,110" fill="none" stroke="rgba(232,0,29,0.22)" strokeWidth="0.95" />
-              <polygon points="90,46 118,62 118,92 90,108 62,92 62,62" fill="url(#replayPrismGlow)" opacity="0.88" />
-              <circle className="hex-core" cx="90" cy="76" r="7" fill="#FF3049" opacity="0.98" />
-              <circle className="hex-core" cx="90" cy="76" r="16" fill="none" stroke="#FF5A6E" strokeWidth="1.15" opacity="0.48" />
-              <circle r="3.4" fill="#E8001D" opacity="1">
-                <animateMotion dur="8.4s" repeatCount="indefinite" calcMode="linear" path="M90,18 L144,48 L144,104 L90,134 L36,104 L36,48 Z" />
+              <line x1="80" y1="60" x2="124" y2="36" stroke="rgba(232,0,29,0.14)" strokeWidth="0.6">
+                <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="9s" repeatCount="indefinite"/>
+              </line>
+              <line x1="80" y1="60" x2="128" y2="90" stroke="rgba(255,80,60,0.09)" strokeWidth="0.6">
+                <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="9s" begin="-3s" repeatCount="indefinite"/>
+              </line>
+              <line x1="80" y1="60" x2="28" y2="96" stroke="rgba(232,0,29,0.07)" strokeWidth="0.6">
+                <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="9s" begin="-6s" repeatCount="indefinite"/>
+              </line>
+              <circle r="3.2" fill="#E8001D" opacity="0.95" filter="url(#pglow)">
+                <animateMotion dur="7s" repeatCount="indefinite" path="M80,28 L108,44 L108,76 L80,92 L52,76 L52,44 Z" rotate="auto"/>
               </circle>
-              <circle r="3.4" fill="#E8001D" opacity="0.9">
-                <animateMotion dur="6.8s" repeatCount="indefinite" calcMode="linear" path="M90,26 L130,48 L130,104 L90,126 L50,104 L50,48 Z" />
+              <circle r="1.8" fill="#FF6B35" opacity="0.55">
+                <animateMotion dur="7s" repeatCount="indefinite" begin="-3.5s" path="M80,28 L108,44 L108,76 L80,92 L52,76 L52,44 Z" rotate="auto"/>
               </circle>
-              <circle r="3.4" fill="#E8001D" opacity="0.75">
-                <animateMotion dur="9.6s" repeatCount="indefinite" calcMode="linear" path="M90,32 L154,56 L154,96 L90,120 L26,96 L26,56 Z" />
-              </circle>
+              <circle className="prism-core" cx="80" cy="60" r="4.5" fill="#E8001D" opacity="0.9"/>
+              <circle cx="80" cy="60" r="10" fill="none" stroke="#E8001D" strokeWidth="0.7" opacity="0.2"/>
             </svg>
           </div>
-          <div className="replay-panel-copy">
-            <h2 style={{
-              fontFamily: "'Instrument Serif', serif", fontWeight: 400,
-              fontSize: "clamp(24px, 3vw, 38px)", color: "#E0E0DA",
-              lineHeight: 1.12, marginBottom: "18px",
-            }}>
-              Replay any session with a single command
-            </h2>
-            <button className="cta-btn-ghost">{"Try Now ->"}</button>
-          </div>
-        </div>
-      </div>
+        </section>
 
-      <section className="surface-glow" style={{
-        display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
-        borderTop: "1px solid #161618", borderBottom: "1px solid #161618",
-        background: "radial-gradient(110% 120% at 0% 100%, rgba(232,0,29,0.11) 0%, rgba(232,0,29,0.045) 18%, rgba(232,0,29,0.01) 30%, rgba(232,0,29,0) 42%), linear-gradient(180deg, #0B0B0C 0%, #0A0A0B 55%, #09090A 100%)",
-      }}>
-        <div className="feature-copy" style={{ padding: "40px 32px", borderRight: "1px solid #161618" }}>
-          <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em", marginBottom: "18px" }}>Lumen</div>
-          <h2 style={{
-            fontFamily: "'Instrument Serif', serif", fontWeight: 400,
-            fontSize: "clamp(20px, 2.2vw, 28px)", lineHeight: 1.2,
-            marginBottom: "16px", color: "#E0E0DA",
-          }}>
-            Every screen engineered for precision analysis
-          </h2>
-          <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.75, marginBottom: "28px" }}>
-            From driver and constructor standings to session-level telemetry replay - Lumen surfaces the data that matters, every season.
-          </p>
-          <button className="cta-btn">{"Open Dashboard ->"}</button>
-        </div>
-
-        <div style={{
-          padding: "32px 24px", borderRight: "1px solid #161618",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: "radial-gradient(circle at 50% 35%, rgba(232,0,29,0.024), transparent 36%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)",
-        }}>
-          <div className="feature-visual-stack" style={{ width: "100%", maxWidth: "220px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div className="field-shape-card pulse-glow soft-float" style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px" }}>
-              <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "10px" }}>FIELD SHAPE - LIVE MODEL</div>
-              <svg className="field-shape-svg" viewBox="0 0 180 100" style={{ width: "100%" }}>
-                <path className="shape-a" d="M26,70 C44,30 70,20 92,34 C108,44 122,48 146,28" fill="none" stroke="#222" strokeWidth="7" strokeLinecap="round" />
-                <path className="shape-b" d="M24,58 C42,46 70,52 90,42 C112,30 132,48 154,42" fill="none" stroke="#1a1a1a" strokeWidth="5" strokeLinecap="round" />
-                <path className="shape-c" d="M30,78 C48,60 64,66 84,58 C110,48 132,66 150,56" fill="none" stroke="#202022" strokeWidth="3" strokeLinecap="round" />
-                {[{ x: 48, y: 47, c: "#E8001D" }, { x: 98, y: 41, c: "#3b82f6" }, { x: 132, y: 50, c: "#f59e0b" }].map((dot, i) => (
-                  <circle key={i} className="field-dot" cx={dot.x} cy={dot.y} r="4" fill={dot.c} />
-                ))}
-                <circle className="field-dot" cx="48" cy="47" r="12" fill="none" stroke="rgba(232,0,29,0.18)" strokeWidth="1" />
-                <circle className="field-dot" cx="98" cy="41" r="10" fill="none" stroke="rgba(59,130,246,0.18)" strokeWidth="1" />
-                <circle className="field-dot" cx="132" cy="50" r="11" fill="none" stroke="rgba(245,158,11,0.18)" strokeWidth="1" />
-                <circle r="2.6" fill="#E8001D" opacity="0.92">
-                  <animateMotion dur="6.4s" repeatCount="indefinite" path="M26,70 C44,30 70,20 92,34 C108,44 122,48 146,28" />
-                </circle>
-                <circle r="2.2" fill="#3b82f6" opacity="0.72">
-                  <animateMotion dur="7.6s" repeatCount="indefinite" path="M24,58 C42,46 70,52 90,42 C112,30 132,48 154,42" />
-                </circle>
-              </svg>
-            </div>
-            <div style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>PACE INDEX</div>
-                <div style={{ width: "22px", height: "22px", background: "#E8001D", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ color: "#fff", fontSize: "8px" }}>▶</span>
-                </div>
+        {/* ── STANDINGS TEASER ── */}
+        <div ref={standingsRef} style={{ scrollMarginTop: "48px" }} />
+        <section ref={standingsTeaserRef} style={{ padding: "64px 32px", borderBottom: "1px solid #161618", background: "radial-gradient(ellipse at 100% 0%, rgba(232,0,29,0.05) 0%, transparent 50%), #0A0A0B" }}>
+          <Reveal inView={standingsInView} delay={0} style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "32px" }}>
+            <div>
+              <div style={{ fontSize: "9px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", marginBottom: "10px" }}>
+                {standingsView === "driver" ? "DRIVER" : "CONSTRUCTOR"} STANDINGS · 2024
               </div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "20px", color: "#E0E0DA", letterSpacing: "-0.01em" }}>91.4</div>
-              <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", marginTop: "2px" }}>composite ranking signal . live</div>
+              <h2 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA", lineHeight: 1.1 }}>Championship<br />at a glance</h2>
             </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
+              {/* Toggle pill */}
+              <div style={{ display: "flex", background: "#0D0D0F", border: "1px solid #1a1a1c", padding: "2px", gap: "2px" }}>
+                {[["driver", "Drivers"], ["constructor", "Constructors"]].map(([v, label]) => (
+                  <button
+                    key={v}
+                    onClick={() => setStandingsView(v)}
+                    style={{
+                      background: standingsView === v ? "#1a1a1c" : "transparent",
+                      border: "none", cursor: "pointer",
+                      fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.1em",
+                      color: standingsView === v ? "#E0E0DA" : "#333",
+                      padding: "5px 12px",
+                      transition: "background 0.18s, color 0.18s",
+                    }}
+                  >{label.toUpperCase()}</button>
+                ))}
+              </div>
+              <button className="ghost-btn">{"Full standings ->"}</button>
+            </div>
+          </Reveal>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px" }}>
+            {standingsView === "driver"
+              ? TEASER_DRIVERS.map((d, i) => <DriverCard key={d.pos} driver={d} index={i} active={standingsInView} />)
+              : TEASER_CONSTRUCTORS.map((c, i) => <ConstructorCard key={c.pos} constructor={c} index={i} active={standingsInView} />)
+            }
           </div>
-        </div>
+          <div style={{ marginTop: "16px", display: "flex", gap: "32px", paddingTop: "14px", borderTop: "1px solid #111113" }}>
+            {[["Rounds complete", "21 / 22"], ["Season", "2024"], ["Next race", "Abu Dhabi · R22"]].map(([k, v], i) => (
+              <Reveal key={k} inView={standingsInView} delay={400 + i * 70}>
+                <div style={{ fontSize: "9px", color: "#2e2e2e", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "3px" }}>{k}</div>
+                <div style={{ fontSize: "11px", color: "#555", fontFamily: "'DM Mono', monospace" }}>{v}</div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
 
-        <div style={{ padding: "40px 28px", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 20% 100%, rgba(232,0,29,0.18) 0%, rgba(232,0,29,0.08) 18%, rgba(232,0,29,0.03) 32%, transparent 60%)", filter: "blur(40px)", zIndex: 0 }} />
-
-          <div style={{ position: "relative", zIndex: 1 }}>
-            <div className="feature-list" style={{ marginBottom: "24px" }}>
-              {["Driver & constructor standings", "Race calendar with session breakdown", "Animated telemetry replay via PIXI.js"].map((item, i) => (
-                <div key={i} className="checklist-item">
-                  <div style={{ width: "13px", height: "13px", borderRadius: "50%", border: "1.5px solid #E8001D", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#E8001D" }} />
+        {/* ── CALENDAR TEASER ── */}
+        <div ref={calendarRef} style={{ scrollMarginTop: "48px" }} />
+        <section ref={calendarTeaserRef} style={{ padding: "64px 32px", borderBottom: "1px solid #161618", background: "radial-gradient(ellipse at 50% 100%, rgba(232,0,29,0.05) 0%, transparent 55%), #0A0A0B", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "64px", alignItems: "center" }}>
+          <Reveal inView={calendarInView} delay={0}>
+            <div style={{ fontSize: "9px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", marginBottom: "10px" }}>RACE CALENDAR · 22 ROUNDS</div>
+            <h2 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA", lineHeight: 1.1, marginBottom: "16px" }}>
+              Season schedule,<br />every session
+            </h2>
+            <p style={{ fontSize: "12px", color: "#555", lineHeight: 1.8, marginBottom: "28px", maxWidth: "280px" }}>
+              Browse every round — practice, qualifying, and race — filtered by season and circuit.
+            </p>
+            <button className="ghost-btn">{"View full calendar ->"}</button>
+          </Reveal>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            {TEASER_RACES.map((race, i) => (
+              <Reveal key={race.round} inView={calendarInView} delay={i * 90 + 100} direction="right">
+                <div style={{
+                  background: race.status === "next" ? "#111113" : "#0D0D0F",
+                  border: "1px solid", borderColor: race.status === "next" ? "#222226" : "#141416",
+                  padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  cursor: "pointer", position: "relative", overflow: "hidden",
+                  transition: "background 0.2s, border-color 0.2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#2a2a2d"; e.currentTarget.style.background = "#141416"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = race.status === "next" ? "#222226" : "#141416"; e.currentTarget.style.background = race.status === "next" ? "#111113" : "#0D0D0F"; }}
+                >
+                  {race.status === "next" && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "2px", background: "#E8001D" }} />}
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <span style={{ fontSize: "9px", color: "#2e2e2e", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", minWidth: "28px" }}>{race.round}</span>
+                    <div>
+                      <div style={{ fontSize: "12px", color: race.status === "next" ? "#E0E0DA" : "#777", fontFamily: "'Geist', sans-serif", fontWeight: 500 }}>{race.name}</div>
+                      <div style={{ fontSize: "9px", color: "#2e2e2e", fontFamily: "'DM Mono', monospace", marginTop: "3px" }}>{race.circuit}</div>
+                    </div>
                   </div>
-                  <span>{item}</span>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "9px", color: race.status === "next" ? "#E8001D" : "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em" }}>{race.date}</div>
+                    {race.winner && <div style={{ fontSize: "8px", color: "#2e2e2e", fontFamily: "'DM Mono', monospace", marginTop: "3px" }}>WIN {race.winner}</div>}
+                    {race.status === "next" && <div style={{ fontSize: "8px", color: "#E8001D", fontFamily: "'DM Mono', monospace", marginTop: "3px", letterSpacing: "0.12em" }}>NEXT</div>}
+                  </div>
                 </div>
+              </Reveal>
+            ))}
+            <Reveal inView={calendarInView} delay={400}>
+              <button className="ghost-btn" style={{ marginTop: "8px", width: "100%", justifyContent: "center" }}>{"All 22 rounds ->"}</button>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ── REPLAY TEASER ── */}
+        <div ref={replayRef} style={{ scrollMarginTop: "48px" }} />
+        <section ref={replayTeaserRef} style={{ padding: "64px 32px", borderBottom: "1px solid #161618", background: "radial-gradient(ellipse at 0% 100%, rgba(232,0,29,0.06) 0%, transparent 50%), #0A0A0B", display: "grid", gridTemplateColumns: "auto 1fr", gap: "56px", alignItems: "center" }}>
+          <Reveal inView={replayInView} delay={0} direction="left" style={{ width: "280px", flexShrink: 0 }}>
+            <div style={{ background: "#0D0D0F", border: "1px solid #1a1a1c", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "1px", background: "linear-gradient(90deg, transparent, rgba(232,0,29,0.4), transparent)" }} />
+              <div style={{ padding: "16px" }}>
+                <svg viewBox="0 0 248 100" style={{ width: "100%", display: "block" }}>
+                  <defs>
+                    <linearGradient id="rt-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#E8001D" stopOpacity="0.18" />
+                      <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
+                    </linearGradient>
+                    <clipPath id="rt-played">
+                      <rect x="0" y="0" width={`${playhead * 2.48}`} height="100" />
+                    </clipPath>
+                  </defs>
+                  {[25, 50, 75].map(y => <line key={y} x1="0" y1={y} x2="248" y2={y} stroke="#111113" strokeWidth="0.5" />)}
+                  {/* Ghost reference lines */}
+                  <polyline points="0,72 31,55 62,64 93,24 124,44 155,16 186,36 217,20 248,30" fill="none" stroke="#1e1e1e" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points="0,80 31,64 62,74 93,38 124,56 155,30 186,52 217,40 248,48" fill="none" stroke="#161616" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+                  {/* Main telemetry line — unplayed (dark) + played (red revealed by clipPath) */}
+                  <path d={`M${REPLAY_PTS.map(([x,y])=>`${x},${y}`).join(" L")} L248,100 L0,100 Z`} fill="url(#rt-fill)" clipPath="url(#rt-played)" />
+                  <polyline points={REPLAY_PTS.map(([x,y])=>`${x},${y}`).join(" ")} fill="none" stroke="#1e0808" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={REPLAY_PTS.map(([x,y])=>`${x},${y}`).join(" ")} fill="none" stroke="#E8001D" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#rt-played)" />
+                  {/* Vertical playhead line — same x as dot, both from playhead state */}
+                  {(() => { const p = replayDotPos(playhead); return (
+                    <>
+                      <line x1={p.x} y1="0" x2={p.x} y2="100" stroke="#E8001D" strokeWidth="0.8" opacity="0.4"/>
+                      <circle cx={p.x} cy={p.y} r="5" fill="rgba(232,0,29,0.18)" />
+                      <circle cx={p.x} cy={p.y} r="2.8" fill="#E8001D" />
+                    </>
+                  ); })()}
+                </svg>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal inView={replayInView} delay={120}>
+            <div style={{ fontSize: "9px", color: "#E8001D", fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", marginBottom: "10px" }}>SESSION REPLAY</div>
+            <h2 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA", lineHeight: 1.1, marginBottom: "16px" }}>
+              Replay any session<br /><em>frame by frame</em>
+            </h2>
+            <p style={{ fontSize: "12px", color: "#555", lineHeight: 1.8, marginBottom: "28px", maxWidth: "340px" }}>
+              Load any race weekend and scrub through recorded telemetry — speed, throttle, brake, and DRS across every lap, every circuit, every season.
+            </p>
+            <div style={{ display: "flex", gap: "6px", marginBottom: "28px", flexWrap: "wrap" }}>
+              {["Speed", "Throttle", "Brake", "DRS", "Position"].map((tag, i) => (
+                <Reveal key={tag} inView={replayInView} delay={200 + i * 55}>
+                  <span className="pill">{tag}</span>
+                </Reveal>
               ))}
             </div>
+            <button className="cta-btn" onClick={() => setAuthOpen(true)}>{"Try Replay ->"}</button>
+          </Reveal>
+        </section>
 
-            <div className="snapshot-card reveal-up" style={{ background: "#111113", border: "1px solid #1e1e20", borderRadius: "8px", padding: "14px", animationDelay: "420ms" }}>
-              <div style={{ fontSize: "9px", color: "#555", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "8px" }}>STANDINGS SNAPSHOT</div>
-              <div style={{ fontSize: "13px", fontFamily: "'Instrument Serif', serif", marginBottom: "4px", color: "#E0E0DA" }}>Selected Season Pulse</div>
-              <div style={{ fontSize: "11px", color: "#555" }}>drivers . constructors . movement by season</div>
-              <div style={{ margin: "10px 0", height: "1px", background: "#161618" }} />
-              <div style={{ display: "flex", gap: "6px" }}>
-                {["P1 VER", "P2 NOR", "P3 PIA"].map((d) => (
-                  <span key={d} style={{ background: "#0E0E0F", border: "1px solid #1e1e20", borderRadius: "4px", padding: "2px 8px", fontSize: "10px", fontFamily: "'DM Mono', monospace", color: "#555" }}>{d}</span>
-                ))}
-              </div>
+        {/* ── CTA ── */}
+        <section ref={ctaRef} style={{ padding: "88px 32px", background: "radial-gradient(ellipse at 50% 50%, rgba(232,0,29,0.06) 0%, transparent 60%), #0A0A0B", borderBottom: "1px solid #161618", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: "40px" }}>
+          <Reveal inView={ctaInView} delay={0}>
+            <h2 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(28px, 4vw, 52px)", color: "#E0E0DA", lineHeight: 1.06, letterSpacing: "-0.025em" }}>
+              One session —<br />infinite insights.<br /><em>/ Open it now.</em>
+            </h2>
+          </Reveal>
+          <Reveal inView={ctaInView} delay={120}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ width: "1px", height: "48px", background: "#161618", marginBottom: "16px" }} />
+              <button className="cta-btn-red" onClick={() => setAuthOpen(true)}>{"Open Dashboard ->"}</button>
+              <div style={{ width: "1px", height: "48px", background: "#161618", marginTop: "16px" }} />
             </div>
-          </div>
-        </div>
-      </section>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "320px" }}>
-        <div className="banner-copy" style={{
-          background: "radial-gradient(60% 80% at 75% 55%, rgba(232,0,29,0.08), rgba(232,0,29,0.03) 30%, transparent 60%), linear-gradient(120deg, #0C0C0D 0%, #120B0D 52%, #0A0A0B 100%)", position: "relative", overflow: "hidden",
-          display: "flex", flexDirection: "column", justifyContent: "space-between",
-          padding: "28px", borderRight: "1px solid #161618",
-        }}>
-          <div>
-            <div style={{ fontSize: "10px", color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "4px" }}>TELEMETRY DECODED</div>
-            <div style={{ fontSize: "10px", color: "#333", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>ALL SEASONS . ALL CIRCUITS</div>
-          </div>
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "none",
-          }}>
-            <div style={{
-              position: "relative",
-              width: "74%",
-              maxWidth: "420px",
-              minHeight: "214px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-start",
-            }}>
-              <div className="replay-stripe-field" style={{
-                position: "absolute",
-                inset: "12% 6% 12% 34%",
-                display: "flex",
-                gap: "18px",
-                alignItems: "stretch",
-                justifyContent: "flex-start",
-                opacity: 0.16,
-                maskImage: "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.88) 18%, rgba(0,0,0,0.88) 82%, transparent 100%)",
-              }}>
-                {Array.from({ length: 7 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="stripe-line"
-                    style={{
-                      width: i === 3 ? "2px" : "1px",
-                      background: i === 3 ? "linear-gradient(180deg, rgba(232,0,29,0) 0%, rgba(232,0,29,0.3) 18%, rgba(232,0,29,0.34) 50%, rgba(232,0,29,0.3) 82%, rgba(232,0,29,0) 100%)" : "linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.10) 20%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.10) 80%, rgba(255,255,255,0) 100%)",
-                      height: "100%",
-                    }}
-                  />
-                ))}
-              </div>
-            <div
-              style={{
-                position: "absolute",
-                inset: "14% 4% 14% 0",
-                background: "radial-gradient(80% 100% at 70% 60%, rgba(52,5,11,0.25), rgba(52,5,11,0.12) 40%, transparent 70%)",
-                filter: "blur(20px)",
-              }} />
-              <h2 style={{
-                fontFamily: "'Instrument Serif', serif", fontWeight: 400,
-                fontSize: "clamp(22px, 3.2vw, 40px)", color: "#E0E0DA",
-                lineHeight: 1.1, letterSpacing: "-0.02em", position: "relative", zIndex: 1, textAlign: "left",
-                textWrap: "balance",
-                width: "100%",
-                maxWidth: "320px",
-              }}>
-                Don't Watch It.
-                <br />Don't Guess It.
-                <br />Just Replay It.
-              </h2>
-            </div>
-          </div>
-        </div>
-
-        <div className="banner-meta" style={{
-          background: "radial-gradient(circle at 50% 42%, rgba(232,0,29,0.1), transparent 30%), linear-gradient(180deg, #0E0E0F 0%, #0A0A0B 100%)", position: "relative",
-          display: "flex", flexDirection: "column", justifyContent: "space-between",
-          padding: "28px",
-        }}>
-          <div className="reveal-up" style={{ position: "absolute", top: "18px", right: "22px", textAlign: "right", animationDelay: "220ms" }}>
-            <div style={{ fontSize: "11px", color: "#444", fontFamily: "'DM Mono', monospace" }}>Kalman-smoothed</div>
-            <div style={{ fontSize: "11px", color: "#444", fontFamily: "'DM Mono', monospace" }}>telemetry</div>
-          </div>
-          <div className="soft-float" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg className="kalman-visual" viewBox="0 0 220 160" width="220" height="160">
-              <circle className="state-halo" cx="78" cy="88" r="48" fill="#161618" stroke="#1e1e20" strokeWidth="1" />
-              <ellipse className="state-ring" cx="78" cy="88" rx="64" ry="16" fill="none" stroke="#2a2a2a" strokeWidth="1.5" opacity="0.6" />
-              <circle className="state-core" cx="78" cy="88" r="8" fill="#E8001D" opacity="0.8" />
-              <circle r="3" fill="#E8001D" opacity="0.9">
-                <animateMotion dur="6.8s" repeatCount="indefinite" path="M14,88 A64,16 0 1,1 142,88 A64,16 0 1,1 14,88" />
-              </circle>
-              <g transform="skewY(-8) translate(0,8)">
-                <rect className="state-panel" x="132" y="62" width="68" height="40" rx="3" fill="#111113" stroke="#1e1e20" strokeWidth="1" />
-                <line className="panel-line" x1="140" y1="72" x2="192" y2="72" stroke="#2a2a2a" strokeWidth="0.8" />
-                <line className="panel-line" x1="140" y1="80" x2="180" y2="80" stroke="#1e1e1e" strokeWidth="0.8" />
-                <circle r="2.6" fill="#E8001D" opacity="0.72">
-                  <animate attributeName="cx" values="140;192;140" dur="3.2s" repeatCount="indefinite" />
-                  <animate attributeName="cy" values="72;72;72" dur="3.2s" repeatCount="indefinite" />
-                </circle>
+          </Reveal>
+          <Reveal inView={ctaInView} delay={200} style={{ display: "flex", justifyContent: "flex-end" }}>
+            <svg className="cta-orbit" viewBox="0 0 160 160" width="160" height="160">
+              <circle cx="80" cy="80" r="64" fill="#0D0D0F" stroke="#1a1a1a" strokeWidth="1" />
+              <g className="q-shell">
+                <ellipse cx="80" cy="80" rx="28" ry="9" fill="none" stroke="rgba(232,0,29,0.24)" strokeWidth="1.1" transform="rotate(-22 80 80)" />
               </g>
-              <circle r="2.2" fill="#E8001D" opacity="0.4">
-                <animate attributeName="cx" values="140;180;140" dur="5.4s" repeatCount="indefinite" />
-                <animate attributeName="cy" values="80;80;80" dur="5.4s" repeatCount="indefinite" />
+              <g className="q-shell b">
+                <ellipse cx="80" cy="80" rx="42" ry="11" fill="none" stroke="rgba(232,0,29,0.16)" strokeWidth="1" transform="rotate(18 80 80)" />
+              </g>
+              <g className="q-shell c">
+                <ellipse cx="80" cy="80" rx="56" ry="13" fill="none" stroke="rgba(232,0,29,0.1)" strokeWidth="0.9" transform="rotate(60 80 80)" />
+              </g>
+              <circle r="3.2" fill="#E8001D" opacity="0.95">
+                <animateMotion dur="9.5s" repeatCount="indefinite" path="M108,80 A28,9 0 1,1 52,80 A28,9 0 1,1 108,80" rotate="auto" />
               </circle>
+              <circle r="2" fill="#fff" opacity="0.4">
+                <animateMotion dur="13.8s" repeatCount="indefinite" path="M122,80 A42,11 0 1,0 38,80 A42,11 0 1,0 122,80" rotate="auto" />
+              </circle>
+              <circle className="o-core" cx="80" cy="80" r="5" fill="#E8001D" />
+              <circle cx="80" cy="80" r="10" fill="none" stroke="#E8001D" strokeWidth="0.8" opacity="0.25" />
             </svg>
-          </div>
-          <div className="banner-note" style={{ fontSize: "12px", color: "#555" }}>
-            6-state constant-acceleration Kalman model - frame-accurate position at every point
-          </div>
-        </div>
-      </div>
+          </Reveal>
+        </section>
 
-      <section className="reveal-up" style={{ padding: "48px 32px", background: "#0A0A0B", animationDelay: "260ms" }}>
-        <div className="gallery-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(22px, 2.5vw, 30px)", color: "#E0E0DA" }}>
-            Championship standings
-          </h2>
-          <div className="gallery-tabs" style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-            {GALLERY_TABS.map((t) => (
-              <button key={t} className={`gallery-tab${activeGallery === t ? " active" : ""}`}
-                onClick={() => setActiveGallery(t)}>{t}</button>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px" }}>
-          {SESSIONS.map((s) => <SessionCard key={s.id} session={s} motionStyle={motionStyle} />)}
-        </div>
-      </section>
+        {/* ── FOOTER ── */}
+        <footer ref={footerRef} style={{ background: "#0A0A0B", borderTop: "1px solid #111113", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Reveal inView={footerInView} delay={0}>
+            <div style={{ fontSize: "12px", color: "#2a2a2a", fontFamily: "'DM Mono', monospace", marginBottom: "3px" }}>A Race Intelligence Tool by Lumen</div>
+            <div style={{ fontSize: "11px", color: "#1e1e1e", fontFamily: "'DM Mono', monospace" }}>Lumen — All rights reserved.</div>
+          </Reveal>
+          <Reveal inView={footerInView} delay={100}>
+            <div style={{ display: "flex", gap: "28px" }}>
+              {[["Standings", standingsRef], ["Calendar", calendarRef], ["Replay", replayRef]].map(([l, r]) => (
+                <button key={l} className="nav-link" onClick={() => scrollTo(r, l)} style={{ fontSize: "11px", color: "#2a2a2a", letterSpacing: "0.03em" }}>{"-> "}{l}</button>
+              ))}
+            </div>
+          </Reveal>
+        </footer>
 
-      <section className="surface-glow" style={{
-        background: "radial-gradient(circle at 76% 50%, rgba(232,0,29,0.032), transparent 32%), linear-gradient(180deg, #0C0C0D 0%, #0A0A0B 100%)", padding: "72px 32px",
-        display: "grid", gridTemplateColumns: "1fr auto 1fr",
-        alignItems: "center", gap: "40px",
-        borderTop: "1px solid #161618",
-      }}>
-        <div className="cta-copy">
-          <div style={{ display: "flex", gap: "8px", marginBottom: "22px" }}>
-            <span className="pill">Replay</span>
-            <span className="pill">Standings</span>
-            <span className="pill">Calendar</span>
-          </div>
-          <h2 style={{
-            fontFamily: "'Instrument Serif', serif", fontWeight: 400,
-            fontSize: "clamp(30px, 4.5vw, 56px)", color: "#E0E0DA",
-            lineHeight: 1.05, letterSpacing: "-0.025em",
-          }}>
-            One session -
-            <br />Infinite insights
-            <br /><em>/ Limitless replay.</em>
-          </h2>
-          <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.75, marginTop: "20px", maxWidth: "280px" }}>
-            Load any race weekend and watch every battle, strategy call, and braking point - frame by frame, every season.
-          </p>
+        {/* ── WORDMARK ── */}
+        <div style={{ background: "#0A0A0B", textAlign: "center", padding: "0 0 16px", overflow: "hidden" }}>
+          <Reveal inView={footerInView} delay={200}>
+            <div style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400, fontSize: "clamp(48px, 16vw, 160px)", color: "#0D0D0E", letterSpacing: "-0.03em", lineHeight: 1, userSelect: "none" }}>
+              Lumen
+            </div>
+          </Reveal>
         </div>
 
-        <div className="cta-center" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ width: "1px", height: "48px", background: "#1e1e20", marginBottom: "16px" }} />
-          <button className="cta-btn-red">{"Open Dashboard ->"}</button>
-          <div style={{ width: "1px", height: "48px", background: "#1e1e20", marginTop: "16px" }} />
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <svg className="cta-orbit" viewBox="0 0 180 180" width="180" height="180">
-            <circle cx="90" cy="90" r="72" fill="#0f0f0f" stroke="#1a1a1a" strokeWidth="1" />
-            <g className="electron-cloud cloud-a">
-              <ellipse cx="90" cy="90" rx="52" ry="24" fill="rgba(232,0,29,0.05)" transform="rotate(-28 90 90)" />
-              <ellipse cx="90" cy="90" rx="34" ry="62" fill="rgba(232,0,29,0.035)" transform="rotate(18 90 90)" />
-            </g>
-            <g className="electron-cloud cloud-b">
-              <ellipse cx="90" cy="90" rx="64" ry="18" fill="rgba(245,158,11,0.04)" transform="rotate(42 90 90)" />
-              <ellipse cx="90" cy="90" rx="20" ry="70" fill="rgba(255,255,255,0.025)" transform="rotate(-12 90 90)" />
-            </g>
-            <g className="electron-cloud cloud-c">
-              <ellipse cx="90" cy="90" rx="26" ry="72" fill="rgba(232,0,29,0.03)" transform="rotate(62 90 90)" />
-              <ellipse cx="90" cy="90" rx="70" ry="20" fill="rgba(255,255,255,0.02)" transform="rotate(-44 90 90)" />
-            </g>
-            <g className="quantum-shell shell-a">
-              <ellipse cx="90" cy="90" rx="30" ry="10" fill="none" stroke="rgba(232,0,29,0.22)" strokeWidth="1.1" transform="rotate(-26 90 90)" />
-            </g>
-            <g className="quantum-shell shell-b">
-              <ellipse cx="90" cy="90" rx="46" ry="12" fill="none" stroke="rgba(232,0,29,0.18)" strokeWidth="1" transform="rotate(22 90 90)" />
-            </g>
-            <g className="quantum-shell shell-c">
-              <ellipse cx="90" cy="90" rx="62" ry="14" fill="none" stroke="rgba(232,0,29,0.14)" strokeWidth="1" transform="rotate(68 90 90)" />
-            </g>
-            <g className="quantum-shell shell-d">
-              <ellipse cx="90" cy="90" rx="54" ry="18" fill="none" stroke="rgba(232,0,29,0.12)" strokeWidth="0.9" transform="rotate(-58 90 90)" />
-            </g>
-            <g className="quantum-shell shell-e">
-              <ellipse cx="90" cy="90" rx="38" ry="22" fill="none" stroke="rgba(232,0,29,0.1)" strokeWidth="0.9" transform="rotate(54 90 90)" />
-            </g>
-            <g className="quantum-shell shell-f">
-              <ellipse cx="90" cy="90" rx="66" ry="9" fill="none" stroke="rgba(232,0,29,0.11)" strokeWidth="0.85" transform="rotate(8 90 90)" />
-            </g>
-            <circle className="quantum-electron" r="3.4" fill="#E8001D" opacity="0.95">
-              <animateMotion dur="10.5s" repeatCount="indefinite" path="M120,90 A30,10 0 1,1 60,90 A30,10 0 1,1 120,90" rotate="auto" />
-            </circle>
-            <circle className="quantum-electron" r="2.4" fill="#F3F4F6" opacity="0.75">
-              <animateMotion dur="14.2s" repeatCount="indefinite" path="M136,90 A46,12 0 1,0 44,90 A46,12 0 1,0 136,90" rotate="auto" />
-            </circle>
-            <circle className="quantum-electron" r="2.1" fill="#E8001D" opacity="0.58">
-              <animateMotion dur="18.8s" repeatCount="indefinite" path="M152,90 A62,14 0 1,1 28,90 A62,14 0 1,1 152,90" rotate="auto" />
-            </circle>
-            <circle className="orbit-core" cx="90" cy="90" r="6" fill="#E8001D" />
-            <circle className="orbit-core" cx="90" cy="90" r="12" fill="none" stroke="#E8001D" strokeWidth="1" opacity="0.4" />
-            <circle cx="90" cy="90" r="72" fill="none" stroke="rgba(232,0,29,0.12)" strokeWidth="1" />
-          </svg>
-        </div>
-      </section>
-
-      <footer style={{
-        background: "#0A0A0B", borderTop: "1px solid #161618",
-        padding: "28px 32px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <div className="footer-copy">
-          <div style={{ fontSize: "12px", color: "#444", fontFamily: "'DM Mono', monospace", marginBottom: "3px" }}>
-            A Race Intelligence Tool by Lumen
-          </div>
-          <div style={{ fontSize: "11px", color: "#333", fontFamily: "'DM Mono', monospace" }}>
-            Lumen - All rights reserved.
-          </div>
-        </div>
-        <div className="footer-links" style={{ display: "flex", gap: "28px" }}>
-          {["-> Standings", "-> Calendar", "-> Sessions", "-> Replay"].map((l) => (
-            <button key={l} className="nav-link" style={{ fontSize: "11px", color: "#444", letterSpacing: "0.03em" }}>{l}</button>
-          ))}
-        </div>
-      </footer>
-
-      <div className="watermark" style={{ background: "#0A0A0B", textAlign: "center", padding: "0 0 16px", overflow: "hidden" }}>
-        <div style={{
-          fontFamily: "'Instrument Serif', serif", fontWeight: 400,
-          fontSize: "clamp(48px, 16vw, 160px)",
-          color: "#121212", letterSpacing: "-0.03em",
-          lineHeight: 1, userSelect: "none",
-        }}>
-          Lumen
-        </div>
-      </div>
       </div>
     </div>
   );
