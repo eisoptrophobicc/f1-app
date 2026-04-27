@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useReducer } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ─────────────────────────────────────────────
    DATA
@@ -37,21 +37,18 @@ const REPLAY_PTS = [
   [0, 78], [31, 60], [62, 70], [93, 28], [124, 50], [155, 18], [186, 42], [217, 24], [248, 36],
 ];
 
+const SESSION_OVERVIEW = {
+  name: "Abu Dhabi GP",
+  round: "R22",
+  circuit: "Yas Marina",
+  fp3:  [{ pos: "P1", drv: "VER", time: "1:23.445" }, { pos: "P2", drv: "NOR", time: "1:23.701" }, { pos: "P3", drv: "PIA", time: "1:23.889" }],
+  qual: [{ pos: "P1", drv: "VER", time: "1:22.595" }, { pos: "P2", drv: "NOR", time: "1:22.841" }, { pos: "P3", drv: "LEC", time: "1:22.972" }],
+  race: [{ pos: "P1", drv: "Verstappen", team: "Red Bull", gap: "Winner" }, { pos: "P2", drv: "Norris", team: "McLaren", gap: "+3.7s" }, { pos: "P3", drv: "Piastri", team: "McLaren", gap: "+11.2s" }],
+};
+
 /* ─────────────────────────────────────────────
    UTILS
 ───────────────────────────────────────────── */
-function replayDotPos(progress) {
-  const x = (progress / 100) * 248;
-  for (let i = 0; i < REPLAY_PTS.length - 1; i++) {
-    const [x0, y0] = REPLAY_PTS[i];
-    const [x1, y1] = REPLAY_PTS[i + 1];
-    if (x <= x1) {
-      const t = (x - x0) / (x1 - x0);
-      return { x, y: y0 + t * (y1 - y0) };
-    }
-  }
-  return { x: 248, y: REPLAY_PTS[REPLAY_PTS.length - 1][1] };
-}
 
 function useCountUp(target, active, duration = 1100, delay = 0) {
   const [value, setValue] = useState(0);
@@ -76,38 +73,56 @@ function useCountUp(target, active, duration = 1100, delay = 0) {
 /* ─────────────────────────────────────────────
    SPARKLINE
 ───────────────────────────────────────────── */
-function SparkLine({ data, id, animated }) {
-  const W = 217, H = 40;
+function SparkLine({ data, id, animated, fillHeight = false }) {
+  const containerRef = useRef(null);
+  const [dims, setDims] = useState({ w: 217, h: 40 });
+  const defaultH = 40;
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect;
+      setDims({ w: width, h: Math.max(height, defaultH) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const W = dims.w;
+  const H = dims.h;
   const min = Math.min(...data), max = Math.max(...data);
   const range = Math.max(1, max - min);
   const pts = data.map((y, x) => {
     const ny = (y - min) / range;
-    return { x: x * (W / (data.length - 1)), y: H - ny * (H - 4) - 2 };
+    return { x: x * (W / (data.length - 1)), y: H - ny * (H - 8) - 4 };
   });
   const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const areaPath = `${linePath} L ${W},${H} L 0,${H} Z`;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 40, display: "block", overflow: "visible" }}>
-      <defs>
-        <linearGradient id={`sg-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#E8001D" stopOpacity="0.22" />
-          <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={areaPath} fill={`url(#sg-${id})`} />
-      <path d={linePath} fill="none" stroke="#E8001D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      {animated && (
-        <>
-          <circle r="5" fill="rgba(232,0,29,0.12)">
-            <animateMotion dur={`${4.5 + id * 0.5}s`} repeatCount="indefinite" calcMode="linear" path={linePath} />
-          </circle>
-          <circle r="2.4" fill="#E8001D">
-            <animateMotion dur={`${4.5 + id * 0.5}s`} repeatCount="indefinite" calcMode="linear" path={linePath} />
-          </circle>
-        </>
-      )}
-    </svg>
+    <div ref={containerRef} style={{ width: "100%", height: fillHeight ? "100%" : defaultH, minHeight: defaultH }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "100%", display: "block", overflow: "visible" }}>
+        <defs>
+          <linearGradient id={`sg-${id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E8001D" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#sg-${id})`} />
+        <path d={linePath} fill="none" stroke="#E8001D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        {animated && (
+          <>
+            <circle r="5" fill="rgba(232,0,29,0.12)">
+              <animateMotion dur={`${4.5 + id * 0.5}s`} repeatCount="indefinite" calcMode="linear" path={linePath} />
+            </circle>
+            <circle r="2.4" fill="#E8001D">
+              <animateMotion dur={`${4.5 + id * 0.5}s`} repeatCount="indefinite" calcMode="linear" path={linePath} />
+            </circle>
+          </>
+        )}
+      </svg>
+    </div>
   );
 }
 
@@ -122,71 +137,99 @@ const cardVariants = {
   }),
 };
 
-function DriverCard({ driver, index, active }) {
+function DriverCard({ driver, index, active, compact = false, style: extraStyle = {} }) {
   const pts = useCountUp(driver.pts, active, 1000, index * 100);
+  const { gridColumn, gridRow, ...motionStyle } = extraStyle;
   return (
-    <motion.div
-      custom={index}
-      variants={cardVariants}
-      initial="hidden"
-      animate={active ? "visible" : "hidden"}
-      whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
-      className="p-5 cursor-pointer"
-      style={{ background: "#0F0F11", border: "1px solid #1a1a1c", transition: "background 0.2s, border-color 0.2s" }}
-    >
-      <div className="flex justify-between items-start mb-3.5">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="font-mono text-[10px] tracking-widest" style={{ color: "#E8001D" }}>{driver.pos}</span>
-            <span className="w-px h-2.5" style={{ background: "#222" }} />
-            <span className="font-mono text-[9px] tracking-wider" style={{ color: "#444" }}>{driver.team}</span>
+    <div style={{ gridColumn, gridRow, minHeight: 0 }}>
+      <motion.div
+        custom={index}
+        variants={cardVariants}
+        initial="hidden"
+        animate={active ? "visible" : "hidden"}
+        whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
+        className="cursor-pointer"
+        style={{
+          background: "#0F0F11", border: "1px solid #1a1a1c",
+          padding: compact ? "16px 18px" : 20,
+          height: "100%", boxSizing: "border-box",
+          display: "flex", flexDirection: "column", justifyContent: compact ? "space-between" : "flex-start",
+          gap: compact ? 0 : 14,
+          transition: "background 0.2s, border-color 0.2s",
+          ...motionStyle,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: compact ? 10 : 0 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: compact ? 4 : 6 }}>
+              <span className="font-mono tracking-widest" style={{ fontSize: compact ? 9 : 10, color: "#E8001D" }}>{driver.pos}</span>
+              <span style={{ width: 1, height: 10, background: "#222", flexShrink: 0 }} />
+              <span className="font-mono tracking-wider" style={{ fontSize: compact ? 8 : 9, color: "#444" }}>{driver.team}</span>
+            </div>
+            <div className="font-normal" style={{ fontSize: compact ? 13 : 14, color: "#C8C8C2", fontFamily: "'Instrument Serif', serif" }}>{driver.name}</div>
           </div>
-          <div className="text-sm font-normal" style={{ color: "#C8C8C2", fontFamily: "'Instrument Serif', serif" }}>{driver.name}</div>
+          <div style={{ textAlign: "right" }}>
+            <div className="font-mono leading-none tracking-tighter" style={{ fontSize: compact ? 24 : 30, color: "#E8E8E2" }}>{pts}</div>
+            <div className="font-mono tracking-widest" style={{ fontSize: 8, color: "#333", marginTop: 2 }}>PTS</div>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="font-mono text-[30px] leading-none tracking-tighter" style={{ color: "#E8E8E2" }}>{pts}</div>
-          <div className="font-mono text-[8px] tracking-widest mt-0.5" style={{ color: "#333" }}>PTS</div>
+        <div style={{ flex: compact ? "0 0 auto" : "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <SparkLine data={driver.spark} id={index} animated={active} fillHeight={!compact} />
+          {driver.gap
+            ? <div className="font-mono tracking-wider" style={{ marginTop: 6, fontSize: 9, color: "#444" }}>{driver.gap} to leader</div>
+            : <div className="font-mono tracking-wider" style={{ marginTop: 6, fontSize: 9, color: "#2a2a2a" }}>+{TEASER_DRIVERS[0].pts - TEASER_DRIVERS[1].pts} ahead of P2</div>
+          }
         </div>
-      </div>
-      <SparkLine data={driver.spark} id={index} animated={active} />
-      {driver.gap && (
-        <div className="mt-2 font-mono text-[9px] tracking-wider" style={{ color: "#444" }}>{driver.gap} to leader</div>
-      )}
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
-function ConstructorCard({ constructor: c, index, active }) {
+function ConstructorCard({ constructor: c, index, active, compact = false, style: extraStyle = {} }) {
   const pts = useCountUp(c.pts, active, 1000, index * 100);
+  const { gridColumn, gridRow, ...motionStyle } = extraStyle;
   return (
-    <motion.div
-      custom={index}
-      variants={cardVariants}
-      initial="hidden"
-      animate={active ? "visible" : "hidden"}
-      whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
-      className="p-5 cursor-pointer"
-      style={{ background: "#0F0F11", border: "1px solid #1a1a1c", transition: "background 0.2s, border-color 0.2s" }}
-    >
-      <div className="flex justify-between items-start mb-3.5">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="font-mono text-[10px] tracking-widest" style={{ color: "#E8001D" }}>{c.pos}</span>
-            <span className="w-px h-2.5" style={{ background: "#222" }} />
-            <span className="font-mono text-[9px] tracking-wider" style={{ color: "#444" }}>{c.base}</span>
+    <div style={{ gridColumn, gridRow, minHeight: 0 }}>
+      <motion.div
+        custom={index}
+        variants={cardVariants}
+        initial="hidden"
+        animate={active ? "visible" : "hidden"}
+        whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
+        className="cursor-pointer"
+        style={{
+          background: "#0F0F11", border: "1px solid #1a1a1c",
+          padding: compact ? "16px 18px" : 20,
+          height: "100%", boxSizing: "border-box",
+          display: "flex", flexDirection: "column", justifyContent: compact ? "space-between" : "flex-start",
+          gap: compact ? 0 : 14,
+          transition: "background 0.2s, border-color 0.2s",
+          ...motionStyle,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: compact ? 10 : 0 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: compact ? 4 : 6 }}>
+              <span className="font-mono tracking-widest" style={{ fontSize: compact ? 9 : 10, color: "#E8001D" }}>{c.pos}</span>
+              <span style={{ width: 1, height: 10, background: "#222", flexShrink: 0 }} />
+              <span className="font-mono tracking-wider" style={{ fontSize: compact ? 8 : 9, color: "#444" }}>{c.base}</span>
+            </div>
+            <div className="font-normal" style={{ fontSize: compact ? 13 : 14, color: "#C8C8C2", fontFamily: "'Instrument Serif', serif" }}>{c.name}</div>
           </div>
-          <div className="text-sm font-normal" style={{ color: "#C8C8C2", fontFamily: "'Instrument Serif', serif" }}>{c.name}</div>
+          <div style={{ textAlign: "right" }}>
+            <div className="font-mono leading-none tracking-tighter" style={{ fontSize: compact ? 24 : 30, color: "#E8E8E2" }}>{pts}</div>
+            <div className="font-mono tracking-widest" style={{ fontSize: 8, color: "#333", marginTop: 2 }}>PTS</div>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="font-mono text-[30px] leading-none tracking-tighter" style={{ color: "#E8E8E2" }}>{pts}</div>
-          <div className="font-mono text-[8px] tracking-widest mt-0.5" style={{ color: "#333" }}>PTS</div>
+        <div style={{ flex: compact ? "0 0 auto" : "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <SparkLine data={c.spark} id={index + 10} animated={active} fillHeight={!compact} />
+          {c.gap
+            ? <div className="font-mono tracking-wider" style={{ marginTop: 6, fontSize: 9, color: "#444" }}>{c.gap} to leader</div>
+            : <div className="font-mono tracking-wider" style={{ marginTop: 6, fontSize: 9, color: "#2a2a2a" }}>+{TEASER_CONSTRUCTORS[0].pts - TEASER_CONSTRUCTORS[1].pts} ahead of P2</div>
+          }
         </div>
-      </div>
-      <SparkLine data={c.spark} id={index + 10} animated={active} />
-      {c.gap && (
-        <div className="mt-2 font-mono text-[9px] tracking-wider" style={{ color: "#444" }}>{c.gap} to leader</div>
-      )}
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -491,7 +534,6 @@ export default function Landing() {
   const [animationsReady, setAnimationsReady] = useState(false);
   const [scrolled, setScrolled]               = useState(false);
   const [activeNav, setActiveNav]             = useState(null);
-  const [playhead, setPlayhead]               = useState(0);
   const [authOpen, setAuthOpen]               = useState(false);
   const [standingsView, setStandingsView]     = useState("driver");
 
@@ -522,20 +564,6 @@ export default function Landing() {
     return () => clearTimeout(t);
   }, []);
 
-  // Playhead rAF
-  useEffect(() => {
-    let start = null;
-    const duration = 6000;
-    let raf;
-    const step = (ts) => {
-      if (start === null) start = ts;
-      setPlayhead(((ts - start) % duration) / duration * 100);
-      raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", fn, { passive: true });
@@ -559,8 +587,6 @@ export default function Landing() {
       transition: { duration: 0.78, ease: [0.22, 1, 0.36, 1], delay: delay / 1000 },
     }),
   };
-
-  const dot = replayDotPos(playhead);
 
   return (
     <div
@@ -656,11 +682,11 @@ export default function Landing() {
         </motion.nav>
 
         {/* ── TICKER ── */}
-        <div className="ticker-strip relative overflow-hidden" style={{ borderBottom: "1px solid #161618", background: "#0A0A0B", height: 30 }}>
+         <div className="ticker-strip relative overflow-hidden" style={{ borderBottom: "1px solid #161618", background: "#0A0A0B", height: 30 }}>
           <div className="absolute left-0 top-0 h-full w-16 pointer-events-none" style={{ background: "linear-gradient(90deg, #0A0A0B 40%, transparent)", zIndex: 2 }} />
           <div className="absolute right-0 top-0 h-full w-16 pointer-events-none" style={{ background: "linear-gradient(270deg, #0A0A0B 40%, transparent)", zIndex: 2 }} />
           <div className="ticker-inner flex items-center h-full whitespace-nowrap">
-            {[...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
+            {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
               <div key={i} className="inline-flex items-center h-full flex-shrink-0">
                 <div className="inline-flex items-center h-full px-5">
                   {item.category === "RND" ? (
@@ -739,123 +765,154 @@ export default function Landing() {
           </div>
 
           {/* Hex Prism */}
-          <motion.div className="soft-float relative flex-shrink-0" style={{ zIndex: 1 }} custom={320} variants={heroVariants} initial="hidden" animate={animationsReady ? "visible" : "hidden"}>
-            <svg viewBox="0 0 160 160" width="260" height="260" style={{ overflow: "visible", display: "block" }}>
-              <defs>
-                <linearGradient id="pf1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#E8001D" stopOpacity="0.35"/><stop offset="100%" stopColor="#FF6B35" stopOpacity="0.06"/></linearGradient>
-                <linearGradient id="pf2" x1="1" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8001D" stopOpacity="0.18"/><stop offset="100%" stopColor="#E8001D" stopOpacity="0.04"/></linearGradient>
-                <linearGradient id="pf3" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stopColor="#FF3B52" stopOpacity="0.22"/><stop offset="100%" stopColor="#E8001D" stopOpacity="0.04"/></linearGradient>
-                <filter id="pglow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter>
-              </defs>
-              <g className="prism-outer">
-                <polygon points="80,12 124,36 124,84 80,108 36,84 36,36" fill="none" stroke="rgba(232,0,29,0.1)" strokeWidth="0.8"/>
-                <line x1="80" y1="12" x2="80" y2="108" stroke="rgba(232,0,29,0.05)" strokeWidth="0.5"/>
-                <line x1="36" y1="36" x2="124" y2="84" stroke="rgba(232,0,29,0.05)" strokeWidth="0.5"/>
-                <line x1="124" y1="36" x2="36" y2="84" stroke="rgba(232,0,29,0.05)" strokeWidth="0.5"/>
-              </g>
-              <g className="prism-mid">
-                <polygon points="80,28 108,44 108,76 80,92 52,76 52,44" fill="none" stroke="rgba(232,0,29,0.26)" strokeWidth="1.1"/>
-                <polygon className="prism-face"   points="80,28 108,44 80,60" fill="url(#pf1)"/>
-                <polygon className="prism-face b" points="108,44 108,76 80,60" fill="url(#pf2)"/>
-                <polygon className="prism-face c" points="80,92 52,76 80,60" fill="url(#pf3)"/>
-                <polygon points="80,28 52,44 80,60"  fill="rgba(232,0,29,0.04)"/>
-                <polygon points="52,44 52,76 80,60"  fill="rgba(232,0,29,0.06)"/>
-                <polygon points="108,76 80,92 80,60" fill="rgba(232,0,29,0.05)"/>
-              </g>
-              <g className="prism-inner">
-                <polygon points="80,46 94,54 94,70 80,78 66,70 66,54" fill="none" stroke="rgba(232,0,29,0.44)" strokeWidth="1.2"/>
-                <polygon points="80,46 94,54 94,70 80,78 66,70 66,54" fill="rgba(232,0,29,0.07)"/>
-              </g>
-              <line x1="80" y1="60" x2="124" y2="36" stroke="rgba(232,0,29,0.14)" strokeWidth="0.6">
-                <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="9s" repeatCount="indefinite"/>
-              </line>
-              <line x1="80" y1="60" x2="128" y2="90" stroke="rgba(255,80,60,0.09)" strokeWidth="0.6">
-                <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="9s" begin="-3s" repeatCount="indefinite"/>
-              </line>
-              <line x1="80" y1="60" x2="28" y2="96" stroke="rgba(232,0,29,0.07)" strokeWidth="0.6">
-                <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="9s" begin="-6s" repeatCount="indefinite"/>
-              </line>
-              <circle r="3.2" fill="#E8001D" opacity="0.95" filter="url(#pglow)">
-                <animateMotion dur="7s" repeatCount="indefinite" path="M80,28 L108,44 L108,76 L80,92 L52,76 L52,44 Z" rotate="auto"/>
-              </circle>
-              <circle r="1.8" fill="#FF6B35" opacity="0.55">
-                <animateMotion dur="7s" repeatCount="indefinite" begin="-3.5s" path="M80,28 L108,44 L108,76 L80,92 L52,76 L52,44 Z" rotate="auto"/>
-              </circle>
-              <circle className="prism-core" cx="80" cy="60" r="4.5" fill="#E8001D" opacity="0.9"/>
-              <circle cx="80" cy="60" r="10" fill="none" stroke="#E8001D" strokeWidth="0.7" opacity="0.2"/>
-            </svg>
+          <motion.div className="soft-float relative flex-shrink-0" style={{zIndex:1}} custom={320} variants={heroVariants} initial="hidden" animate={animationsReady?"visible":"hidden"}>
+          <svg viewBox="0 0 160 160" width="260" height="260" style={{overflow:"visible",display:"block"}}>
+
+          <defs>
+          <linearGradient id="pf1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#E8001D" stopOpacity=".35"/><stop offset="100%" stopColor="#FF6B35" stopOpacity=".06"/></linearGradient>
+          <linearGradient id="pf2" x1="1" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E8001D" stopOpacity=".18"/><stop offset="100%" stopColor="#E8001D" stopOpacity=".04"/></linearGradient>
+          <linearGradient id="pf3" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stopColor="#FF3B52" stopOpacity=".22"/><stop offset="100%" stopColor="#E8001D" stopOpacity=".04"/></linearGradient>
+          <filter id="pglow"><feGaussianBlur stdDeviation="2.5" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+          </defs>
+
+          {/* OUTER (slow) */}
+          <g>
+          <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="18s" repeatCount="indefinite"/>
+          <polygon points="80,12 124,36 124,84 80,108 36,84 36,36" fill="none" stroke="rgba(232,0,29,.1)" strokeWidth=".8"/>
+          <line x1="80" y1="12" x2="80" y2="108" stroke="rgba(232,0,29,.05)" strokeWidth=".5"/>
+          <line x1="36" y1="36" x2="124" y2="84" stroke="rgba(232,0,29,.05)" strokeWidth=".5"/>
+          <line x1="124" y1="36" x2="36" y2="84" stroke="rgba(232,0,29,.05)" strokeWidth=".5"/>
+          </g>
+
+          {/* MAIN SYSTEM (SYNCED) */}
+          <g>
+          <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="360 80 60" dur="9s" repeatCount="indefinite"/>
+
+          <polygon points="80,28 108,44 108,76 80,92 52,76 52,44" fill="none" stroke="rgba(232,0,29,.26)" strokeWidth="1.1"/>
+          <polygon points="80,28 108,44 80,60" fill="url(#pf1)"/>
+          <polygon points="108,44 108,76 80,60" fill="url(#pf2)"/>
+          <polygon points="80,92 52,76 80,60" fill="url(#pf3)"/>
+
+          {/* lines */}
+          <line x1="80" y1="60" x2="124" y2="36" stroke="rgba(232,0,29,.14)" strokeWidth=".6"/>
+          <line x1="80" y1="60" x2="128" y2="90" stroke="rgba(255,80,60,.09)" strokeWidth=".6"/>
+          <line x1="80" y1="60" x2="28" y2="96" stroke="rgba(232,0,29,.07)" strokeWidth=".6"/>
+
+          {/* electrons */}
+          <circle r="3.2" fill="#E8001D" opacity=".95" filter="url(#pglow)">
+          <animateMotion dur="9s" repeatCount="indefinite" calcMode="linear"
+          path="M80,28 L108,44 L108,76 L80,92 L52,76 L52,44 Z"/>
+          </circle>
+
+          <circle r="1.8" fill="#FF6B35" opacity=".55">
+          <animateMotion dur="9s" begin="-4.5s" repeatCount="indefinite" calcMode="linear"
+          path="M80,28 L108,44 L108,76 L80,92 L52,76 L52,44 Z"/>
+          </circle>
+
+          </g>
+
+          {/* INNER (fast / reverse) */}
+          <g>
+          <animateTransform attributeName="transform" type="rotate" from="0 80 60" to="-360 80 60" dur="6s" repeatCount="indefinite"/>
+          <polygon points="80,46 94,54 94,70 80,78 66,70 66,54" fill="none" stroke="rgba(232,0,29,.44)" strokeWidth="1.2"/>
+          <polygon points="80,46 94,54 94,70 80,78 66,70 66,54" fill="rgba(232,0,29,.07)"/>
+          </g>
+
+          {/* core */}
+          <circle cx="80" cy="60" r="4.5" fill="#E8001D" opacity=".9"/>
+          <circle cx="80" cy="60" r="10" fill="none" stroke="#E8001D" strokeWidth=".7" opacity=".2"/>
+
+          </svg>
           </motion.div>
         </section>
 
         {/* ── STANDINGS TEASER ── */}
-        <div ref={standingsRef} style={{ scrollMarginTop: 48 }} />
+         <div ref={standingsRef} style={{ scrollMarginTop: 48 }} />
         <section
           ref={standingsTeaserRef}
-          className="px-8 py-16"
-          style={{ borderBottom: "1px solid #161618", background: "radial-gradient(ellipse at 100% 0%, rgba(232,0,29,0.05) 0%, transparent 50%), #0A0A0B" }}
+          className="px-8 py-16 grid gap-16 items-start"
+          style={{
+            borderBottom: "1px solid #161618",
+            background: "radial-gradient(ellipse at 100% 0%, rgba(232,0,29,0.05) 0%, transparent 50%), #0A0A0B",
+            gridTemplateColumns: "1fr 1fr",
+          }}
         >
-          <Reveal inView={standingsInView} delay={0} className="flex items-end justify-between mb-8">
-            <div>
+          {/* Cards — LEFT */}
+          <div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={standingsView}
+                style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridTemplateRows: "1fr 1fr", gap: 2 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {standingsView === "driver"
+                  ? <DriverCard driver={TEASER_DRIVERS[0]} index={0} active={standingsInView} style={{ gridColumn: 1, gridRow: "1 / 3", alignSelf: "stretch" }} />
+                  : <ConstructorCard constructor={TEASER_CONSTRUCTORS[0]} index={0} active={standingsInView} style={{ gridColumn: 1, gridRow: "1 / 3", alignSelf: "stretch" }} />
+                }
+                {standingsView === "driver"
+                  ? <DriverCard driver={TEASER_DRIVERS[1]} index={1} active={standingsInView} compact style={{ gridColumn: 2, gridRow: 1 }} />
+                  : <ConstructorCard constructor={TEASER_CONSTRUCTORS[1]} index={1} active={standingsInView} compact style={{ gridColumn: 2, gridRow: 1 }} />
+                }
+                {standingsView === "driver"
+                  ? <DriverCard driver={TEASER_DRIVERS[2]} index={2} active={standingsInView} compact style={{ gridColumn: 2, gridRow: 2 }} />
+                  : <ConstructorCard constructor={TEASER_CONSTRUCTORS[2]} index={2} active={standingsInView} compact style={{ gridColumn: 2, gridRow: 2 }} />
+                }
+              </motion.div>
+            </AnimatePresence>
+
+          </div>
+
+          {/* Copy — RIGHT */}
+          <div>
+            <Reveal inView={standingsInView} delay={0}>
               <div className="font-mono text-[9px] tracking-widest mb-2.5" style={{ color: "#E8001D" }}>
                 {standingsView === "driver" ? "DRIVER" : "CONSTRUCTOR"} STANDINGS · 2024
               </div>
-              <h2 className="font-normal leading-tight" style={{ fontFamily: "'Instrument Serif', serif", fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA" }}>
+              <h2 className="font-normal leading-tight mb-4" style={{ fontFamily: "'Instrument Serif', serif", fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA" }}>
                 Championship<br />at a glance
               </h2>
-            </div>
-            <div className="flex flex-col items-end gap-3">
-              <div className="flex p-0.5 gap-0.5" style={{ background: "#0D0D0F", border: "1px solid #1a1a1c" }}>
-                {[["driver", "Drivers"], ["constructor", "Constructors"]].map(([v, label]) => (
-                  <motion.button
-                    key={v}
-                    onClick={() => setStandingsView(v)}
-                    className="font-mono text-[9px] tracking-widest px-3 py-1.5 transition-colors duration-150"
-                    style={{
-                      background: standingsView === v ? "#1a1a1c" : "transparent",
-                      border: "none", cursor: "pointer",
-                      color: standingsView === v ? "#E0E0DA" : "#333",
-                    }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    {label.toUpperCase()}
-                  </motion.button>
-                ))}
+              <p className="text-xs mb-7" style={{ color: "#555", lineHeight: 1.8, maxWidth: 280 }}>
+                Live driver and constructor standings updated after every round, with point progression across the season.
+              </p>
+              <div className="flex flex-col items-start gap-3">
+                <div className="flex p-0.5 gap-0.5 mb-1" style={{ background: "#0D0D0F", border: "1px solid #1a1a1c" }}>
+                  {[["driver", "Drivers"], ["constructor", "Constructors"]].map(([v, label]) => (
+                    <motion.button
+                      key={v}
+                      onClick={() => setStandingsView(v)}
+                      className="font-mono text-[9px] tracking-widest px-3 py-1.5 transition-colors duration-150"
+                      style={{
+                        background: standingsView === v ? "#1a1a1c" : "transparent",
+                        border: "none", cursor: "pointer",
+                        color: standingsView === v ? "#E0E0DA" : "#333",
+                      }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      {label.toUpperCase()}
+                    </motion.button>
+                  ))}
+                </div>
+                <motion.button
+                  className="inline-flex items-center gap-1.5 font-sans text-[11px] px-4 py-2"
+                  style={{ background: "transparent", color: "#666", border: "1px solid #1e1e20", cursor: "pointer" }}
+                  whileHover={{ borderColor: "#3a3a3d", color: "#C8C8C2" }}
+                  transition={{ duration: 0.2 }}
+                >
+                  Full standings -&gt;
+                </motion.button>
               </div>
-              <motion.button
-                className="inline-flex items-center gap-1.5 font-sans text-[11px] px-4 py-2"
-                style={{ background: "transparent", color: "#666", border: "1px solid #1e1e20", cursor: "pointer" }}
-                whileHover={{ borderColor: "#3a3a3d", color: "#C8C8C2" }}
-                transition={{ duration: 0.2 }}
-              >
-                Full standings -&gt;
-              </motion.button>
+            </Reveal>
+            <div className="flex gap-8 mt-4 pt-3.5" style={{ borderTop: "1px solid #111113" }}>
+              {[["Rounds complete", "21 / 22"], ["Season", "2024"], ["Next race", "Abu Dhabi · R22"]].map(([k, v], i) => (
+                <Reveal key={k} inView={standingsInView} delay={400 + i * 70}>
+                  <div className="font-mono text-[9px] tracking-widest mb-0.5" style={{ color: "#2e2e2e" }}>{k}</div>
+                  <div className="font-mono text-[11px]" style={{ color: "#555" }}>{v}</div>
+                </Reveal>
+              ))}
             </div>
-          </Reveal>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={standingsView}
-              className="grid gap-0.5"
-              style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {standingsView === "driver"
-                ? TEASER_DRIVERS.map((d, i) => <DriverCard key={d.pos} driver={d} index={i} active={standingsInView} />)
-                : TEASER_CONSTRUCTORS.map((c, i) => <ConstructorCard key={c.pos} constructor={c} index={i} active={standingsInView} />)
-              }
-            </motion.div>
-          </AnimatePresence>
-
-          <div className="flex gap-8 mt-4 pt-3.5" style={{ borderTop: "1px solid #111113" }}>
-            {[["Rounds complete", "21 / 22"], ["Season", "2024"], ["Next race", "Abu Dhabi · R22"]].map(([k, v], i) => (
-              <Reveal key={k} inView={standingsInView} delay={400 + i * 70}>
-                <div className="font-mono text-[9px] tracking-widest mb-0.5" style={{ color: "#2e2e2e" }}>{k}</div>
-                <div className="font-mono text-[11px]" style={{ color: "#555" }}>{v}</div>
-              </Reveal>
-            ))}
           </div>
         </section>
 
@@ -863,72 +920,144 @@ export default function Landing() {
         <div ref={calendarRef} style={{ scrollMarginTop: 48 }} />
         <section
           ref={calendarTeaserRef}
-          className="px-8 py-16 grid gap-16 items-center"
+          className="px-8 py-16 grid gap-16 items-start"
           style={{
             borderBottom: "1px solid #161618",
             background: "radial-gradient(ellipse at 50% 100%, rgba(232,0,29,0.05) 0%, transparent 55%), #0A0A0B",
             gridTemplateColumns: "1fr 1fr",
           }}
         >
-          <Reveal inView={calendarInView} delay={0}>
-            <div className="font-mono text-[9px] tracking-widest mb-2.5" style={{ color: "#E8001D" }}>RACE CALENDAR · 22 ROUNDS</div>
-            <h2 className="font-normal leading-tight mb-4" style={{ fontFamily: "'Instrument Serif', serif", fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA" }}>
-              Season schedule,<br />every session
-            </h2>
-            <p className="text-xs mb-7" style={{ color: "#555", lineHeight: 1.8, maxWidth: 280 }}>
-              Browse every round — practice, qualifying, and race — filtered by season and circuit.
-            </p>
-            <motion.button
-              className="inline-flex items-center gap-1.5 font-sans text-[11px] px-4 py-2"
-              style={{ background: "transparent", color: "#666", border: "1px solid #1e1e20", cursor: "pointer" }}
-              whileHover={{ borderColor: "#3a3a3d", color: "#C8C8C2" }}
-              transition={{ duration: 0.2 }}
-            >
-              View full calendar -&gt;
-            </motion.button>
-          </Reveal>
-
-          <div className="flex flex-col gap-0.5">
-            {TEASER_RACES.map((race, i) => (
-              <Reveal key={race.round} inView={calendarInView} delay={i * 90 + 100} direction="right">
-                <motion.div
-                  className="flex items-center justify-between px-4 py-3.5 relative overflow-hidden cursor-pointer"
-                  style={{
-                    background: race.status === "next" ? "#111113" : "#0D0D0F",
-                    border: "1px solid",
-                    borderColor: race.status === "next" ? "#222226" : "#141416",
-                  }}
-                  whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
+          <div>
+            <Reveal inView={calendarInView} delay={0}>
+              <div className="font-mono text-[9px] tracking-widest mb-2.5" style={{ color: "#E8001D", textAlign: "right" }}>RACE CALENDAR · 22 ROUNDS</div>
+              <h2 className="font-normal leading-tight mb-4" style={{ fontFamily: "'Instrument Serif', serif", fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA", textAlign: "right" }}>
+                Season schedule,<br />every session
+              </h2>
+              <p className="text-xs mb-7" style={{ color: "#555", lineHeight: 1.8, maxWidth: 280, textAlign: "right", marginLeft: "auto" }}>
+                Browse every round — practice, qualifying, and race — filtered by season and circuit.
+              </p>
+              <div className="flex justify-end">
+                <motion.button
+                  className="inline-flex items-center gap-1.5 font-sans text-[11px] px-4 py-2"
+                  style={{ background: "transparent", color: "#666", border: "1px solid #1e1e20", cursor: "pointer" }}
+                  whileHover={{ borderColor: "#3a3a3d", color: "#C8C8C2" }}
                   transition={{ duration: 0.2 }}
                 >
-                  {race.status === "next" && (
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: "#E8001D" }} />
-                  )}
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono text-[9px] tracking-widest" style={{ color: "#2e2e2e", minWidth: 28 }}>{race.round}</span>
-                    <div>
-                      <div className="font-sans text-xs font-medium" style={{ color: race.status === "next" ? "#E0E0DA" : "#777" }}>{race.name}</div>
-                      <div className="font-mono text-[9px] mt-0.5" style={{ color: "#2e2e2e" }}>{race.circuit}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono text-[9px] tracking-wider" style={{ color: race.status === "next" ? "#E8001D" : "#333" }}>{race.date}</div>
-                    {race.winner && <div className="font-mono text-[8px] mt-0.5" style={{ color: "#2e2e2e" }}>WIN {race.winner}</div>}
-                    {race.status === "next" && <div className="font-mono text-[8px] mt-0.5 tracking-widest" style={{ color: "#E8001D" }}>NEXT</div>}
-                  </div>
-                </motion.div>
-              </Reveal>
-            ))}
-            <Reveal inView={calendarInView} delay={400}>
-              <motion.button
-                className="mt-2 w-full flex justify-center items-center gap-1.5 font-sans text-[11px] px-4 py-2"
-                style={{ background: "transparent", color: "#666", border: "1px solid #1e1e20", cursor: "pointer" }}
-                whileHover={{ borderColor: "#3a3a3d", color: "#C8C8C2" }}
-                transition={{ duration: 0.2 }}
-              >
-                All 22 rounds -&gt;
-              </motion.button>
+                  View full calendar -&gt;
+                </motion.button>
+              </div>
             </Reveal>
+            <div className="flex gap-8 mt-4 pt-3.5 justify-end" style={{ borderTop: "1px solid #111113" }}>
+              {[["Rounds complete", "21 / 22"], ["Season", "2024"], ["Next race", "Abu Dhabi · R22"]].map(([k, v], i) => (
+                <Reveal key={k} inView={calendarInView} delay={400 + i * 70}>
+                  <div className="font-mono text-[9px] tracking-widest mb-0.5" style={{ color: "#2e2e2e", textAlign: "right" }}>{k}</div>
+                  <div className="font-mono text-[11px]" style={{ color: "#555", textAlign: "right" }}>{v}</div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 2 }}>
+
+              {/* NEXT RACE — spans both rows, col 1 */}
+              <div style={{ gridColumn: 2, gridRow: "1 / 3", minHeight: 0 }}>
+                <motion.div
+                  custom={0}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate={calendarInView ? "visible" : "hidden"}
+                  whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
+                  style={{
+                    background: "#0F0F11", border: "1px solid #222226",
+                    padding: 20, height: "100%", boxSizing: "border-box",
+                    display: "flex", flexDirection: "column", justifyContent: "space-between",
+                    position: "relative", overflow: "hidden", cursor: "pointer",
+                    transition: "background 0.2s, border-color 0.2s",
+                  }}
+                >
+                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: "#E8001D" }} />
+
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                      <span className="font-mono" style={{ fontSize: 8, color: "#E8001D", letterSpacing: "0.14em" }}>NEXT RACE</span>
+                      <span style={{ width: 1, height: 8, background: "#2a2a2a" }} />
+                      <span className="font-mono" style={{ fontSize: 8, color: "#2a2a2a", letterSpacing: "0.1em" }}>R22</span>
+                    </div>
+                    <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, color: "#E0E0DA", lineHeight: 1.1, marginBottom: 6 }}>
+                      Abu Dhabi GP
+                    </div>
+                    <div className="font-mono" style={{ fontSize: 9, color: "#444", letterSpacing: "0.06em" }}>Yas Marina</div>
+                  </div>
+
+                  <div>
+                    <div className="font-mono leading-none tracking-tighter" style={{ fontSize: 36, color: "#E8E8E2", marginBottom: 2 }}>08</div>
+                    <div className="font-mono tracking-widest" style={{ fontSize: 8, color: "#333" }}>DEC 2024</div>
+                  </div>
+
+                  <div className="font-mono tracking-wider" style={{ fontSize: 9, color: "#2a2a2a" }}>Season finale</div>
+                </motion.div>
+              </div>
+
+              {/* R20 — compact, col 2 row 1 */}
+              <div style={{ gridColumn: 1, gridRow: 1, minHeight: 0 }}>
+                <motion.div
+                  custom={1}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate={calendarInView ? "visible" : "hidden"}
+                  whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d", opacity: 1 }}
+                  style={{
+                    background: "#0F0F11", border: "1px solid #1a1a1c",
+                    padding: "16px 18px", height: "100%", boxSizing: "border-box",
+                    display: "flex", flexDirection: "column", justifyContent: "space-between",
+                    opacity: 0.7, cursor: "pointer",
+                    transition: "background 0.2s, border-color 0.2s, opacity 0.2s",
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span className="font-mono tracking-widest" style={{ fontSize: 9, color: "#E8001D" }}>R20</span>
+                      <span style={{ width: 1, height: 10, background: "#222" }} />
+                      <span className="font-mono tracking-wider" style={{ fontSize: 8, color: "#444" }}>27 Oct</span>
+                    </div>
+                    <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 13, color: "#C8C8C2", marginBottom: 3 }}>Mexico City GP</div>
+                    <div className="font-mono" style={{ fontSize: 9, color: "#444", letterSpacing: "0.06em" }}>Hermanos Rodríguez</div>
+                  </div>
+                  <div className="font-mono tracking-wider" style={{ fontSize: 9, color: "#444" }}>WIN VER</div>
+                </motion.div>
+              </div>
+
+              {/* R21 — compact, col 2 row 2 */}
+              <div style={{ gridColumn: 1, gridRow: 2, minHeight: 0 }}>
+                <motion.div
+                  custom={2}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate={calendarInView ? "visible" : "hidden"}
+                  whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d", opacity: 1 }}
+                  style={{
+                    background: "#0F0F11", border: "1px solid #1a1a1c",
+                    padding: "16px 18px", height: "100%", boxSizing: "border-box",
+                    display: "flex", flexDirection: "column", justifyContent: "space-between",
+                    opacity: 0.7, cursor: "pointer",
+                    transition: "background 0.2s, border-color 0.2s, opacity 0.2s",
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span className="font-mono tracking-widest" style={{ fontSize: 9, color: "#E8001D" }}>R21</span>
+                      <span style={{ width: 1, height: 10, background: "#222" }} />
+                      <span className="font-mono tracking-wider" style={{ fontSize: 8, color: "#444" }}>03 Nov</span>
+                    </div>
+                    <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 13, color: "#C8C8C2", marginBottom: 3 }}>São Paulo GP</div>
+                    <div className="font-mono" style={{ fontSize: 9, color: "#444", letterSpacing: "0.06em" }}>Interlagos</div>
+                  </div>
+                  <div className="font-mono tracking-wider" style={{ fontSize: 9, color: "#444" }}>WIN VER</div>
+                </motion.div>
+              </div>
+
+            </div>
           </div>
         </section>
 
@@ -936,66 +1065,150 @@ export default function Landing() {
         <div ref={replayRef} style={{ scrollMarginTop: 48 }} />
         <section
           ref={replayTeaserRef}
-          className="px-8 py-16 grid items-center gap-14"
+          className="px-8 py-16 grid gap-16 items-start"
           style={{
             borderBottom: "1px solid #161618",
-            background: "radial-gradient(ellipse at 0% 100%, rgba(232,0,29,0.06) 0%, transparent 50%), #0A0A0B",
-            gridTemplateColumns: "auto 1fr",
+            background: "radial-gradient(ellipse at 100% 100%, rgba(232,0,29,0.06) 0%, transparent 50%), #0A0A0B",
+            gridTemplateColumns: "1fr 1fr",
           }}
         >
-          <Reveal inView={replayInView} delay={0} direction="left" className="flex-shrink-0" style={{ width: 280 }}>
-            <div className="relative overflow-hidden" style={{ background: "#0D0D0F", border: "1px solid #1a1a1c" }}>
-              <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(232,0,29,0.4), transparent)" }} />
-              <div className="p-4">
-                <svg viewBox="0 0 248 100" style={{ width: "100%", display: "block" }}>
-                  <defs>
-                    <linearGradient id="rt-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#E8001D" stopOpacity="0.18" />
-                      <stop offset="100%" stopColor="#E8001D" stopOpacity="0" />
-                    </linearGradient>
-                    <clipPath id="rt-played">
-                      <rect x="0" y="0" width={`${playhead * 2.48}`} height="100" />
-                    </clipPath>
-                  </defs>
-                  {[25, 50, 75].map((y) => <line key={y} x1="0" y1={y} x2="248" y2={y} stroke="#111113" strokeWidth="0.5" />)}
-                  <polyline points="0,72 31,55 62,64 93,24 124,44 155,16 186,36 217,20 248,30" fill="none" stroke="#1e1e1e" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points="0,80 31,64 62,74 93,38 124,56 155,30 186,52 217,40 248,48" fill="none" stroke="#161616" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d={`M${REPLAY_PTS.map(([x, y]) => `${x},${y}`).join(" L")} L248,100 L0,100 Z`} fill="url(#rt-fill)" clipPath="url(#rt-played)" />
-                  <polyline points={REPLAY_PTS.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" stroke="#1e0808" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={REPLAY_PTS.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" stroke="#E8001D" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#rt-played)" />
-                  <line x1={dot.x} y1="0" x2={dot.x} y2="100" stroke="#E8001D" strokeWidth="0.8" opacity="0.4" />
-                  <circle cx={dot.x} cy={dot.y} r="5" fill="rgba(232,0,29,0.18)" />
-                  <circle cx={dot.x} cy={dot.y} r="2.8" fill="#E8001D" />
-                </svg>
-              </div>
-            </div>
-          </Reveal>
+          {/* Session overview panel — LEFT */}
+          <div>
+            {/* 2-col grid: Race (tall, col 1) | FP3 + Qual stacked (col 2) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 2 }}>
 
-          <Reveal inView={replayInView} delay={120}>
-            <div className="font-mono text-[9px] tracking-widest mb-2.5" style={{ color: "#E8001D" }}>SESSION REPLAY</div>
-            <h2 className="font-normal leading-tight mb-4" style={{ fontFamily: "'Instrument Serif', serif", fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA" }}>
-              Replay any session<br /><em>frame by frame</em>
-            </h2>
-            <p className="text-xs mb-7" style={{ color: "#555", lineHeight: 1.8, maxWidth: 340 }}>
-              Load any race weekend and scrub through recorded telemetry — speed, throttle, brake, and DRS across every lap, every circuit, every season.
-            </p>
-            <div className="flex gap-1.5 mb-7 flex-wrap">
-              {["Speed", "Throttle", "Brake", "DRS", "Position"].map((tag, i) => (
-                <Reveal key={tag} inView={replayInView} delay={200 + i * 55}>
-                  <span className="font-mono text-[10px] tracking-wider px-3 py-0.5 rounded-full" style={{ border: "1px solid #1e1e20", color: "#444" }}>{tag}</span>
+              {/* RACE — spans both rows, col 1 — primary visual weight */}
+              <motion.div
+                custom={0} variants={cardVariants} initial="hidden" animate={replayInView ? "visible" : "hidden"}
+                whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
+                className="cursor-pointer"
+                style={{
+                  gridColumn: 1, gridRow: "1 / 3",
+                  background: "#0F0F11", border: "1px solid #222226",
+                  padding: 20, boxSizing: "border-box",
+                  display: "flex", flexDirection: "column", justifyContent: "space-between",
+                  position: "relative", overflow: "hidden",
+                  transition: "background 0.2s, border-color 0.2s",
+                }}
+              >
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: "#E8001D" }} />
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <span className="font-mono" style={{ fontSize: 8, color: "#E8001D", letterSpacing: "0.14em" }}>RACE</span>
+                    <span style={{ width: 1, height: 8, background: "#2a2a2a" }} />
+                    <span className="font-mono" style={{ fontSize: 8, color: "#2a2a2a", letterSpacing: "0.1em" }}>R22 · ABU DHABI</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 8 }}>
+                    {[
+                      { pos: "P1", drv: "Verstappen", team: "Red Bull",  gap: "Winner"  },
+                      { pos: "P2", drv: "Norris",     team: "McLaren",   gap: "+3.7s"   },
+                      { pos: "P3", drv: "Piastri",    team: "McLaren",   gap: "+11.2s"  },
+                    ].map(({ pos, drv, team, gap }, i) => (
+                      <div key={i}>
+                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 2 }}>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                            <span className="font-mono" style={{ fontSize: i === 0 ? 10 : 9, color: i === 0 ? "#E8001D" : "#333", letterSpacing: "0.1em" }}>{pos}</span>
+                            <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: i === 0 ? 18 : 14, color: i === 0 ? "#C8C8C2" : "#555" }}>{drv}</span>
+                          </div>
+                          <span className="font-mono" style={{ fontSize: 8, color: i === 0 ? "#555" : "#2a2a2a" }}>{gap}</span>
+                        </div>
+                        <div className="font-mono" style={{ fontSize: 8, color: "#2a2a2a", letterSpacing: "0.06em" }}>{team}</div>
+                        {i < 2 && <div style={{ marginTop: 14, height: 1, background: "#111113" }} />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="font-mono tracking-widest" style={{ fontSize: 8, color: "#2a2a2a", marginTop: 16 }}>Yas Marina · 2024</div>
+              </motion.div>
+
+              {/* FP3 — row 1, col 2 */}
+              <motion.div
+                custom={1} variants={cardVariants} initial="hidden" animate={replayInView ? "visible" : "hidden"}
+                whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
+                className="cursor-pointer"
+                style={{
+                  gridColumn: 2, gridRow: 1,
+                  background: "#0F0F11", border: "1px solid #1a1a1c",
+                  padding: "16px 18px", boxSizing: "border-box",
+                  display: "flex", flexDirection: "column", justifyContent: "space-between",
+                  transition: "background 0.2s, border-color 0.2s",
+                }}
+              >
+                <div className="font-mono tracking-widest" style={{ fontSize: 8, color: "#333", marginBottom: 10, letterSpacing: "0.12em" }}>FP3</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {SESSION_OVERVIEW.fp3.map(({ pos, drv, time }, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <span className="font-mono" style={{ fontSize: 8, color: i === 0 ? "#E8001D" : "#333", minWidth: 16 }}>{pos}</span>
+                        <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 13, color: i === 0 ? "#C8C8C2" : "#555" }}>{drv}</span>
+                      </div>
+                      <span className="font-mono" style={{ fontSize: 8, color: i === 0 ? "#444" : "#2a2a2a" }}>{time}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* QUALIFYING — row 2, col 2 */}
+              <motion.div
+                custom={2} variants={cardVariants} initial="hidden" animate={replayInView ? "visible" : "hidden"}
+                whileHover={{ backgroundColor: "#141416", borderColor: "#2a2a2d" }}
+                className="cursor-pointer"
+                style={{
+                  gridColumn: 2, gridRow: 2,
+                  background: "#0F0F11", border: "1px solid #1a1a1c",
+                  padding: "16px 18px", boxSizing: "border-box",
+                  display: "flex", flexDirection: "column", justifyContent: "space-between",
+                  transition: "background 0.2s, border-color 0.2s",
+                }}
+              >
+                <div className="font-mono tracking-widest" style={{ fontSize: 8, color: "#333", marginBottom: 10, letterSpacing: "0.12em" }}>QUALIFYING</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {SESSION_OVERVIEW.qual.map(({ pos, drv, time }, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <span className="font-mono" style={{ fontSize: 8, color: i === 0 ? "#E8001D" : "#333", minWidth: 16 }}>{pos}</span>
+                        <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 13, color: i === 0 ? "#C8C8C2" : "#555" }}>{drv}</span>
+                      </div>
+                      <span className="font-mono" style={{ fontSize: 8, color: i === 0 ? "#444" : "#2a2a2a" }}>{time}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+
+            </div>
+
+            {/* Footer stat strip */}
+          </div>
+
+          {/* Copy — RIGHT */}
+          <div>
+            <Reveal inView={replayInView} delay={120}>
+              <div className="font-mono text-[9px] tracking-widest mb-2.5" style={{ color: "#E8001D" }}>SESSION REPLAY</div>
+              <h2 className="font-normal leading-tight mb-4" style={{ fontFamily: "'Instrument Serif', serif", fontSize: "clamp(24px, 3vw, 36px)", color: "#E0E0DA" }}>
+                Replay any session,<br /><em>frame by frame</em>
+              </h2>
+              <p className="text-xs mb-7" style={{ color: "#555", lineHeight: 1.8, maxWidth: 340 }}>
+                Load any race weekend and scrub through recorded telemetry — speed, throttle, brake, and DRS across every lap, every circuit, every season.
+              </p>
+              <motion.button
+                className="inline-flex items-center gap-1.5 font-sans font-medium text-xs px-5 py-2.5 whitespace-nowrap"
+                style={{ background: "#E0E0DA", color: "#0A0A0B", border: "none", cursor: "pointer" }}
+                onClick={() => setAuthOpen(true)}
+                whileHover={{ backgroundColor: "#fff", y: -1 }}
+                transition={{ duration: 0.2 }}
+              >
+                Try Replay -&gt;
+              </motion.button>
+            </Reveal>
+            <div className="flex gap-8 mt-4 pt-3.5" style={{ borderTop: "1px solid #111113" }}>
+              {[["Season", "2024"], ["Sessions", "FP1 · FP2 · FP3 · Q · R"], ["Telemetry", "FastF1"]].map(([k, v], i) => (
+                <Reveal key={k} inView={replayInView} delay={400 + i * 70}>
+                  <div className="font-mono text-[9px] tracking-widest mb-0.5" style={{ color: "#2e2e2e" }}>{k}</div>
+                  <div className="font-mono text-[11px]" style={{ color: "#555" }}>{v}</div>
                 </Reveal>
               ))}
             </div>
-            <motion.button
-              className="inline-flex items-center gap-1.5 font-sans font-medium text-xs px-5 py-2.5 whitespace-nowrap"
-              style={{ background: "#E0E0DA", color: "#0A0A0B", border: "none", cursor: "pointer" }}
-              onClick={() => setAuthOpen(true)}
-              whileHover={{ backgroundColor: "#fff", y: -1 }}
-              transition={{ duration: 0.2 }}
-            >
-              Try Replay -&gt;
-            </motion.button>
-          </Reveal>
+          </div>
         </section>
 
         {/* ── CTA ── */}
@@ -1076,7 +1289,7 @@ export default function Landing() {
               <circle cx="80" cy="80" r="10" fill="none" stroke="#E8001D" strokeWidth="0.8" opacity="0.25" />
             </svg>
           </Reveal>
-        </section>  
+        </section>
 
         {/* ── FOOTER ── */}
         <footer
